@@ -33,7 +33,6 @@ options.Verbosity = 0;
         %x(4) = baseline
         
         %exponential decay rate - determined by fitting to non-disappearing dots
-        %SHOULD NOT BE FIXED EVENTUALLY
         k = 0.0035;
         tstart=x(2);
         tend=tstart+x(3);
