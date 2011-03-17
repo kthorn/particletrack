@@ -77,7 +77,6 @@ for n=1:size(handles.data.model,2)
     handles.data.model(n).flags = {};
 end
 
-
 disp('Modeling intensities ... ')
 %calculate intensities
 for n = 1:size(handles.data.model,2)
@@ -86,14 +85,13 @@ for n = 1:size(handles.data.model,2)
     handles.data.model(n).dotI = int_1dot .* (handles.data.model(n).ndots' == 1) + int_2dot .* (handles.data.model(n).ndots' == 2);
     
     %model intensity disappearance
-    handles.data.model(n).modelI = fit_disappearance(handles.data.model(n).dotI');
+    handles.data.model(n).modelI = fit_disappearance_lin(handles.data.model(n).dotI');
     
     %find potential disappearing dots
-    if (handles.data.model(n).modelI(4)/handles.data.model(n).modelI(1) < 0.3)
+    if (handles.data.model(n).modelI(4)/(+handles.data.model(n).modelI(1)+handles.data.model(n).modelI(4)) < 0.3)
         handles.data.model = addflag(handles.data.model, n, 'curious');
     end
 end
-
 
 update_image(handles.axes,handles.data);
 
@@ -143,7 +141,7 @@ if handles.data.selected > 0
     subplot(3,1,3)
     plot(handles.data.model(handles.data.selected).dotI);
     hold on
-    plot(model_results(handles.data.model(handles.data.selected).modelI),'r')
+    plot(model_results_lin(handles.data.model(handles.data.selected).modelI),'r')
     title('Intensity of best fitting model')
 end
 guidata(hObject, handles);
@@ -163,6 +161,16 @@ function export_Callback(hObject, eventdata, handles)
 
 results = handles.data.model;
 results = rmfield(results, {'startims', 'modelims_1dot', 'modelims_2dot', 'initparams'});
+
+%reformat model intensities to match previous version
+%reformat from midpoint, slope to startpoint, duration
+%and from start intensity + baseline intensity to start intensity, end
+%intensity
+for n=1:numel(results)
+    results(n).modelI(2) = results(n).modelI(2) + (0.5/results(n).modelI(3));
+    results(n).modelI(3) = -1/results(n).modelI(3);
+    results(n).modelI(1) = results(n).modelI(1) + results(n).modelI(4);
+end
 
 variable_name=inputdlg('Name for output data');
 assignin('base', variable_name{1}, results);
@@ -422,6 +430,23 @@ for n=1:size(handles.data.model,2)
     handles.data.model(n).ndots = fit_ndots2(fitratio, crossover, penalty);   
 end
 update_image(handles.axes,handles.data);
+
+disp('Modeling intensities ... ')
+%calculate intensities
+for n = 1:size(handles.data.model,2)
+    int_1dot = handles.data.model(n).params_1dot(:,13);
+    int_2dot = handles.data.model(n).params_2dot(:,13)*2;
+    handles.data.model(n).dotI = int_1dot .* (handles.data.model(n).ndots' == 1) + int_2dot .* (handles.data.model(n).ndots' == 2);
+    
+    %model intensity disappearance
+    handles.data.model(n).modelI = fit_disappearance_lin(handles.data.model(n).dotI');
+    
+    %find potential disappearing dots
+    if (handles.data.model(n).modelI(4)/(+handles.data.model(n).modelI(1)+handles.data.model(n).modelI(4)) < 0.3)
+        handles.data.model = addflag(handles.data.model, n, 'curious');
+    end
+end
+
 disp('Done')
 guidata(hObject, handles);
 
