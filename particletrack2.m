@@ -324,14 +324,6 @@ function figure1_CreateFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
-function update_image(target_axis,image,model)
-cla(target_axis)
-imshow(image,[],'Parent',target_axis);
-hold on
-for n=1:size(model,2)
-    plot(model(n).initparams(11),model(n).initparams(10),'ro');
-end
-
 
 % --- Executes on selection change in wavelength_list.
 function wavelength_list_Callback(hObject, eventdata, handles)
@@ -353,4 +345,12 @@ function wavelength_list_CreateFcn(hObject, eventdata, handles)
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
+end
+
+function update_image(target_axis,image,model)
+cla(target_axis)
+imshow(image,[],'Parent',target_axis);
+hold on
+for n=1:size(model,2)
+    plot(model(n).initparams(11),model(n).initparams(10),'ro');
 end
