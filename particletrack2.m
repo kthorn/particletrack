@@ -22,7 +22,7 @@ function varargout = particletrack2(varargin)
 
 % Edit the above text to modify the response to help particletrack2
 
-% Last Modified by GUIDE v2.5 23-Mar-2011 11:54:20
+% Last Modified by GUIDE v2.5 29-Mar-2011 14:55:35
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -60,6 +60,8 @@ set(handles.analyze,'Enable','off');
 set(handles.wavelength_list,'Enable','off');
 set(handles.model_list,'Enable','off');
 set(handles.master_button,'Enable','off');
+set(handles.find_dots,'Enable','off');
+set(handles.add_dots,'Enable','off');
 
 %get models
 
@@ -68,7 +70,6 @@ handles.models = models;
 set(handles.model_list,'String',handles.models.modelnames);
 
 %default parameters
-handles.len = 9; %size of box in XY to fit around each dot
 handles.min_dot_dist = 7; %dots closer than this belong to same cell
 
 % Update handles structure
@@ -163,28 +164,19 @@ function find_dots_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+%get image to search in
+master_wave = handles.data.inputdata.master;
+wavelength_list = handles.data.inputdata.getChannelNames;
+wavenum = strcmp(master_wave, wavelength_list);
+master_image = handles.data.images(:,:,:,wavenum);
 
-%parameters
-h=fspecial('log',5,1);
-%remove points closer to edge of image stack than this
-XYbound = 20;
-Zbound = 4;
-
-%image
-t1=handles.data.images;
 thresh = str2double(get(handles.threshold,'String'));
 
-%initial parameters for fit
-init_template = double([min(t1(:)),  handles.len+1, handles.len+1,  5,  4,  4,  3,  0, thresh*2, handles.len+1, handles.len+1,  5, thresh*3, handles.len+1, handles.len+1, 5 thresh*3]);
-
 %filter image
-testfilt=zeros(size(t1));
-for z=1:size(t1,3)
-    testfilt(:,:,z)=imfilter(t1(:,:,z),-h,'symmetric');
-end
+testfilt = sharpen_image (master_image);
 
 %find peaks
-s=regionprops(testfilt>thresh,t1,'WeightedCentroid');
+s=regionprops(testfilt>thresh, master_image, 'WeightedCentroid');
 startcoords=zeros([size(s,1) 3]);
 for n=1:size(s,1)
     startcoords(n,:)=round(s(n).WeightedCentroid);
@@ -193,38 +185,24 @@ end
 %remove dots too close to edges of image or to other dots
 d=squareform(pdist(startcoords));
 [r,c]=find(d<handles.min_dot_dist & d>0);
-pair_idx = find (r<c);
-r=r(pair_idx);
+pair_idx = r<c;
 c=c(pair_idx);  %upper halves of close dots
-
 startcoords(c,:)=[]; %remove paired dots
 
-XYbound=handles.len*2;
-badcoords = any(startcoords(:,1:2)' <XYbound) | startcoords(:,1)'>512-XYbound | startcoords(:,2)'>512-XYbound;
+boxsize = str2double(get(handles.boxsize,'String'));
+XYbound = boxsize*2;
+handles.data.inputdata.boxsize = boxsize;
+badcoords = any(startcoords(:,1:2)' < XYbound) | startcoords(:,1)' > 512-XYbound | startcoords(:,2)' > 512-XYbound;
 startcoords(badcoords',:)=[];
-nmodel=1;
-if isfield(handles.data,'model')
-    handles.data = rmfield(handles.data, 'model');
-end
-for n=1:size(startcoords,1);
-    handles.data.model(nmodel).initparams = init_template;
-    handles.data.model(nmodel).initparams(2) = startcoords(n,2);
-    handles.data.model(nmodel).initparams(3) = startcoords(n,1);
-    handles.data.model(nmodel).initparams(4) = startcoords(n,3);
-    handles.data.model(nmodel).initparams(10) = startcoords(n,2);
-    handles.data.model(nmodel).initparams(11) = startcoords(n,1);
-    handles.data.model(nmodel).initparams(12) = startcoords(n,3);
-    handles.data.model(nmodel).initparams(14) = startcoords(n,2);
-    handles.data.model(nmodel).initparams(15) = startcoords(n,1);
-    handles.data.model(nmodel).initparams(16) = startcoords(n,3);
-    nmodel=nmodel+1;
-end
 
-update_image(handles.axes, max(t1,[],3), handles.data.model);
-set(handles.status,'String',['Found ', sprintf('%d', size(handles.data.model,2)), ' Dots']);
+%save coordinates
+handles.data.inputdata.coordinates = startcoords;
+
+update_image(max(handles.data.images,[],3), handles.data.inputdata);
+set(handles.status,'String',['Found ', sprintf('%d', size(startcoords,1)), ' Dots']);
 set(handles.remove_dots,'Enable','on');
 set(handles.queue,'Enable','on');
-handles.data.time=1;
+set(handles.add_dots,'Enable','on');
 
 guidata(hObject, handles);
 
@@ -235,21 +213,12 @@ function add_dots_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+figure(1)
 [x,y]=ginput(1);
 [~, z]=max(handles.data.images(round(y),round(x),:,1));
-nmodels=size(handles.data.model,2);
-handles.data.model(nmodels+1).initparams = handles.init_template;
-handles.data.model(nmodels+1).initparams(2) = y;
-handles.data.model(nmodels+1).initparams(3) = x;
-handles.data.model(nmodels+1).initparams(4) = z;
-handles.data.model(nmodels+1).initparams(10) = y;
-handles.data.model(nmodels+1).initparams(11) = x;
-handles.data.model(nmodels+1).initparams(12) = z;
-handles.data.model(nmodels+1).initparams(14) = y;
-handles.data.model(nmodels+1).initparams(15) = x;
-handles.data.model(nmodels+1).initparams(16) = z;
+handles.data.inputdata.coordinates = [handles.data.inputdata.coordinates;[x y z]];
 
-update_image(handles.axes,max(handles.data.images(:,:,:,1),[],3),handles.data.model);
+update_image(max(handles.data.images,[],3),handles.data.inputdata);
 
 set(handles.remove_dots,'Enable','on');
 set(handles.queue,'Enable','on');
@@ -263,18 +232,19 @@ function remove_dots_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+figure(1)
 [x,y]=ginput(1);
-dist=zeros([1 size(handles.data.model,2)]);
-for n=1:size(handles.data.model,2)
-    dist(n) = (handles.data.model(n).initparams(11)-x).^2 + (handles.data.model(n).initparams(10)-y).^2;
+dist=zeros([1 size(handles.data.inputdata.coordinates,1)]);
+for n=1:size(handles.data.inputdata.coordinates,1)
+    dist(n) = (handles.data.inputdata.coordinates(n,1)-x).^2 + (handles.data.inputdata.coordinates(n,2)-y).^2;
 end
 [junk, point_to_remove]=min(dist);
-handles.data.model(point_to_remove)=[];
-update_image(handles.axes,max(handles.data.images(:,:,:,1),[],3),handles.data.model);
+handles.data.inputdata.coordinates(point_to_remove,:)=[];
+update_image(max(handles.data.images,[],3),handles.data.inputdata);
 
 guidata(hObject, handles);
 
-%% Load Button callback
+
 % --- Executes on button press in load.
 function load_Callback(hObject, eventdata, handles)
 % hObject    handle to load (see GCBO)
@@ -302,10 +272,13 @@ dims = size(handles.data.images);
 set(handles.status,'String',['Loaded ', sprintf('%d', prod(dims(3:4))), ' Images']);
 
 set(handles.queue,'Enable','off');
+set(handles.find_dots,'Enable','on');
+set(handles.add_dots,'Enable','on');
 
+update_image(max(handles.data.images,[],3), handles.data.inputdata);
 guidata(hObject, handles);
 
-%% Wavelength list callback
+
 % --- Executes on selection change in wavelength_list.
 function wavelength_list_Callback(hObject, eventdata, handles)
 % hObject    handle to wavelength_list (see GCBO)
@@ -346,22 +319,75 @@ wavelengthlist = get(handles.wavelength_list,'String');
 wavelength = wavelengthlist{get(handles.wavelength_list,'Value')};
 if get(hObject,'Value') == 1
     %update channel
-    handles.data.inputdata.setMaster(wavelength);
+    handles.data.inputdata.master = wavelength;
 else
     warning ('pt:uiwarn','You cannot unset master state; please set another wavelength to master instead');
     set(hObject,'Value',1);
 end
 guidata(hObject, handles);
 
+
+function boxsize_Callback(hObject, eventdata, handles)
+% hObject    handle to boxsize (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of boxsize as text
+%        str2double(get(hObject,'String')) returns contents of boxsize as a double
+handles.data.inputdata.boxsize = str2double(get(hObject,'String'));
+if isfield(handles.data, 'images')
+    update_image(max(handles.data.images,[],3), handles.data.inputdata);
+end
+guidata(hObject, handles);
+
 %% utility functions, non-callbacks
 
-function update_image(target_axis,image,model)
-cla(target_axis)
-imshow(image,[],'Parent',target_axis);
-hold on
-for n=1:size(model,2)
-    plot(model(n).initparams(11),model(n).initparams(10),'ro');
+function update_image(image, inputdata)
+
+%image should be 2 or 3d; if 3d, 3rd axis is assumed to be wavelength
+figure(1)
+clf
+image = squeeze(image);
+satfxn = 0.0002;
+if ndims(image) == 3
+    %generate RGB image
+    RGB = zeros([size(image,1), size(image,2), 3]);
+    [minI, maxI] = satvals(image(:,:,1), satfxn);
+    tempim = double(image(:,:,1) - minI);
+    tempim = tempim./maxI;
+    tempim = max(tempim,0);
+    tempim = min(tempim,1);
+    RGB(:,:,2)=tempim;
+    
+    [minI, maxI] = satvals(image(:,:,2), satfxn);
+    tempim = double(image(:,:,2) - minI);
+    tempim = tempim./maxI;
+    tempim = max(tempim,0);
+    tempim = min(tempim,1);
+    RGB(:,:,1)=tempim;
+else    
+    [minI, maxI] = satvals(image, satfxn);
+    tempim = double(image - minI);
+    tempim = tempim./maxI;
+    tempim = max(tempim,0);
+    tempim = min(tempim,1);
+    RGB = tempim;
 end
+
+%calculate cumulative histogram and saturate top and bottom satfxn
+
+imshow(RGB);
+hold on
+len = inputdata.boxsize;
+for n=1:size(inputdata.coordinates,1)
+    xcen = inputdata.coordinates(n,1);
+    ycen = inputdata.coordinates(n,2);
+    %circles centered on dot startcoordinates
+    plot(xcen,ycen,'wo');
+    %boxes around search area
+    rectangle('Position', [xcen-len, ycen-len, 2*len, 2*len], 'EdgeColor',[0.6 0.6 0.6], 'LineStyle', ':');
+end
+
 
 function update_wavelength_ui (handles)
 
@@ -382,6 +408,24 @@ for n = 1:numel(modellist)
         set(handles.model_list,'Value',n);
     end
 end
+
+function [minI maxI] = satvals (image, satfxn)
+    %returns values for scaling an image to give satfxn saturated pixels
+    image = double(image);
+    bins = min(image(:)):max(image(:));
+    Idist = hist(image(:),bins);
+    Icum = cumsum(Idist);
+    Icum = Icum ./ sum(Idist);
+    minI = find(Icum < satfxn, 1, 'last' );
+    maxI = find(Icum > 1-satfxn, 1 );
+    if isempty(minI)
+        minI = 1;
+    end
+    if isempty(maxI)
+        maxI = numel(bins);
+    end
+    minI = bins(minI);
+    maxI = bins(maxI);
 
 %% Unusued callbacks
 
@@ -448,3 +492,16 @@ function varargout = particletrack2_OutputFcn(hObject, eventdata, handles)
 
 % Get default command line output from handles structure
 varargout{1} = handles.output;
+
+
+% --- Executes during object creation, after setting all properties.
+function boxsize_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to boxsize (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
