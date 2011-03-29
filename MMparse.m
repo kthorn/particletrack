@@ -32,7 +32,7 @@ if nargin > 1
 end
 if nargin > 2
     wavelengths = varargin{2};
-    nwaves = size(wavelengths,2);
+    nwaves = numel(wavelengths);
 end
 testim=imread(fullfile(directory,[prefix,'_000000000_',wavelengths{1},'_000.tif']));
 imstack=zeros([size(testim) max_z+1 max_time+1 nwaves],'uint16');

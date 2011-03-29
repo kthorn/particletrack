@@ -1,4 +1,4 @@
-function model = fit_cell_models(ims, coord_list, len)
+function model = fit_cell_models_2dots(ims, coord_list, len)
 %fits a model of two gaussian spots plus a large gaussian to model nuclear
 %background to an image of a yeast cell.
 
