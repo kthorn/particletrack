@@ -146,12 +146,7 @@ if isfield(handles.data, 'queued')
 else
     nqueued = 0;
 end
-handles.data.queued(nqueued+1).model = handles.data.model;
-handles.data.queued(nqueued+1).dir = get(handles.dir_to_read,'String');
-
-wavelengthlist = get(handles.wavelength_list,'String');
-wavelength = wavelengthlist{get(handles.wavelength_list,'Value')};
-handles.data.queued(nqueued+1).wavelength = wavelength;
+handles.data.queued(nqueued+1).input = handles.data.inputdata;
 
 set(handles.status,'String','Dataset queued');
 
