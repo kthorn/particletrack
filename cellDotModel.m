@@ -4,14 +4,18 @@ classdef cellDotModel < handle
     %   yeast cell
     
     properties (SetAccess = protected) %, GetAccess = private)
-        initcoords %center of data that this model was fit to
+        
         imsize %X, Y, Z dimensions of the image fitted to
         
-        grid %pixel grid that data was fit on
         %both of these can be arrays of parameters of multiple models
         %e.g. if comparing one dot vs two dot model
         model_params %fitted model parameters
         sse %sum of squared errors
+    end
+    
+    properties
+        boxsize
+        initcoords %center of data that this model was fit to
     end
     
     methods (Abstract)
@@ -24,19 +28,22 @@ classdef cellDotModel < handle
         modelim = showModel(obj)
         %return the modeled image
         
-        coords = finalCoords(obj)
+        coords = finalCoords(obj, frame)
         %returns the best estimate for the center of the cell following
         %fitting
+        %frame can be either 'sub' or 'full' depending on whether
+        %coordinates should be in subimage coordiantes or full image
+        %coordinates
         
         params = censoredParams(obj)
         %returns a cesored version of the model parameters, removing
         %nonsensical values
+        
+        grid = generateGrid(obj)
     end
     
     methods
-        function set.grid(obj,value)
-            obj.grid = value;
-        end
+        
         function set.sse(obj,value)
             obj.sse = value;
         end

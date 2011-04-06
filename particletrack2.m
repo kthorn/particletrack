@@ -126,9 +126,8 @@ nqueued = size(handles.data.queued,2);
 for n = 1:nqueued
     set(handles.status,'String',['Analyzing ', sprintf('%d',n), ' of ', sprintf('%d',nqueued)]);
     drawnow expose update
-    ims = MMparse(handles.data.queued(n).dir,[],{handles.data.queued(n).wavelength});
-    model = yeast_dot_track(ims, handles.data.queued(n).model, handles.len);
-    save(fullfile(handles.data.queued(n).dir,'analysis.mat'),'model','ims');
+    model = model_fitter(handles.data.queued(n).input);
+    save(fullfile(handles.data.queued(n).input.directory,'analysis.mat'),'model');
 end
 set(handles.status,'String','Done Analyzing');
 

@@ -9,6 +9,8 @@ classdef fitModel < handle
         ncells;
         ntime;
         nchannels;
+    end
+    properties
         channel;
         
         % channel is an array with subproperties

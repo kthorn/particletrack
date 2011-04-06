@@ -1,18 +1,15 @@
 classdef cellDotModel2Dots < cellDotModel
     %cellDotModel2Dots - Fits a 2 dot model to a yeast cell
-        
+    
     properties
     end
     
     methods
         function fit(obj, im)
             imsize = size(im);
-            [X,Y,Z]=meshgrid(1:imsize(1),1:imsize(2),1:imsize(3));
-            coords=[X(:),Y(:),Z(:)];
-            
             %update object properties
-            obj.grid = coords;
             obj.imsize = imsize;
+            coords = obj.generateGrid();
             
             fit_options = optimset('Display','off','Algorithm','levenberg-marquardt');
             %fit the model to data, updating parameters and fit properties
@@ -47,12 +44,12 @@ classdef cellDotModel2Dots < cellDotModel
             
             %sharpen difference image to find 2nd dot
             diffim = im - fitim;
-            testimfilt = sharpen_image(diffim);            
+            testimfilt = sharpen_image(diffim);
             %autothresholding
-            thresh = max(testimfilt(:))/2;            
+            thresh = max(testimfilt(:))/2;
             %find peaks
             s=regionprops(testimfilt>thresh,diffim,'WeightedCentroid','MaxIntensity');
-            peak = 1;            
+            peak = 1;
             %if multiple peaks, take one with brightest single pixel
             if size(s,1) > 1
                 for n=1:size(s,1)
@@ -105,7 +102,7 @@ classdef cellDotModel2Dots < cellDotModel
         %return fitted dot intensity
         
         function fitim = showModel(obj)
-            fitim=dotmodel2_3d_nosigma(obj.model_params,obj.grid);
+            fitim=dotmodel2_3d_nosigma(obj.model_params,obj.generateGrid());
             fitim=uint16(reshape(fitim,obj.imsize));
         end
         
@@ -139,14 +136,25 @@ classdef cellDotModel2Dots < cellDotModel
             end
         end
         
-        function coords = finalCoords(obj)
+        function coords = finalCoords(obj, frame)
             censored = obj.censoredParams;
             %average coords of all 3 objects to determine center of next image
             coords(2) = nanmean([censored(2), censored(10), censored(14)]);
             coords(1) = nanmean([censored(3), censored(11), censored(15)]);
             coords(3) = nanmean([censored(4), censored(12), censored(16)]);
+            
+            if strcmpi(frame , 'full')
+                coords(1:2) = coords(1:2) + obj.initcoords(1:2) - (obj.boxsize+1);
+            elseif strcmpi(frame , 'sub')
+            else
+                error('unknown keyword for frame')
+            end
         end
         
+        function grid = generateGrid(obj)
+            [X,Y,Z]=meshgrid(1:obj.imsize(1),1:obj.imsize(2),1:obj.imsize(3));
+            grid=[X(:),Y(:),Z(:)];
+        end
     end
     
 end
