@@ -55,37 +55,32 @@ function particleanalyze_OpeningFcn(hObject, eventdata, handles, varargin)
 % Choose default command line output for particleanalyze
 handles.output = hObject;
 
-disp('Initializing ... ')
-
 handles.data.model=evalin('base','model');
-
-if evalin('base', 'exist(''ims'', ''var'')');
-    handles.data.ims=evalin('base','ims');
-else    
-    dir = uigetdir('Z:\','Image directory?');
-    handles.data.ims = MMparse(dir);
-end
+clist = handles.data.model.getChannelNames;
+disp('Loading Images ... ')
+handles.data.ims = MMparse(handles.data.model.directory,[],clist);
 handles.data.time=1;
 handles.data.selected=-1;
-disp('Determining number of dots ... ')
-crossover = str2double(get(handles.crossover, 'Value'));
-penalty = str2double(get(handles.penalty, 'Value'));
-for n=1:size(handles.data.model,2)
-    fitratio = handles.data.model(n).fit_2dot./handles.data.model(n).fit_1dot;
-    handles.data.model(n).ndots = fit_ndots2(fitratio, crossover, penalty);   
-    
-    handles.data.model(n).flags = {};
+
+%need to see if the model has multiple submodels, and if so, pick the best
+%one at each time point
+for n = 1:numel(clist)
+    if handles.data.model.channel(n).models(1,1).n_submodels > 1
+        %need to determine which submodel to use
+        disp('Determining number of dots ... ')
+        crossover = str2double(get(handles.crossover, 'Value'));
+        penalty = str2double(get(handles.penalty, 'Value'));
+    end
 end
 
+%create reduceddata object to contain summarized data
+handles.data.outputModel = reducedModel(handles.data.model);
+
 disp('Modeling intensities ... ')
-%calculate intensities
+%model intensities
+handles.data.outputModel.modelIntensity;
+
 for n = 1:size(handles.data.model,2)
-    int_1dot = handles.data.model(n).params_1dot(:,13);
-    int_2dot = handles.data.model(n).params_2dot(:,13)*2;
-    handles.data.model(n).dotI = int_1dot .* (handles.data.model(n).ndots' == 1) + int_2dot .* (handles.data.model(n).ndots' == 2);
-    
-    %model intensity disappearance
-    handles.data.model(n).modelI = fit_disappearance_lin(handles.data.model(n).dotI');
     
     %find potential disappearing dots
     if (handles.data.model(n).modelI(4)/(+handles.data.model(n).modelI(1)+handles.data.model(n).modelI(4)) < 0.3)

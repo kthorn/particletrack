@@ -17,7 +17,8 @@ end
 ims = MMparse(inputdata.directory,[],wavelengthlist);
 master_channel = find(strcmp(wavelengthlist, inputdata.master));
 
-ntime = size(ims,4);
+imsize = size(ims);
+ntime = imsize(4);
 ncells = size(inputdata.coordinates,1);
 
 %generate a new output model and initialize it.
@@ -30,10 +31,14 @@ for cell = 1:size(inputdata.coordinates,1)
     coords = squeeze(inputdata.coordinates(cell, :));
     
     for time = 1:ntime
-        time
         %cut out subimage for fitting
         if any(isnan(coords(1:2)))
             %lost track of cell, abandon fit
+            break
+        end
+        %check to see if subimage falls outside of image area
+        if any(coords(1:2)-boxsize < 1) || any(coords(1:2)+boxsize > imsize(1:2))
+            %cell is too close to edge, abandon fit
             break
         end
         subimage = squeeze(ims(coords(2)-boxsize:coords(2)+boxsize,coords(1)-boxsize:coords(1)+boxsize,:,time,:));
@@ -41,7 +46,6 @@ for cell = 1:size(inputdata.coordinates,1)
         %         imshow(max(subimage,[],3),[]);
         %fit all channels
         for chan = 1:numel(wavelengthlist)
-            chan
             outputmodel.channel(chan).models(cell, time).fit(subimage(:,:,:,chan));
             outputmodel.channel(chan).models(cell, time).initcoords = coords;
             outputmodel.channel(chan).models(cell, time).boxsize = boxsize;

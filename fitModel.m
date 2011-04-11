@@ -32,7 +32,7 @@ classdef fitModel < handle
             
             clist = inputdata.getChannelNames();
             nn=1;
-            for n=1:numel(clist)                
+            for n=1:numel(clist)
                 model = inputdata.getModelName(clist{n});
                 %don't include unmodeled channels
                 if ~strcmpi(model, 'None');
@@ -54,7 +54,39 @@ classdef fitModel < handle
             end
         end
         
+        function channellist = getChannelNames(obj)
+            channellist={};
+            for n=1:numel(obj.channel)
+                channellist{n} = obj.channel(n).name;
+            end
+        end
+        
+        function I = intensity(obj, chan, cell, varargin)
+            %one optional argument - submodel to get intensity for
+            %if omitted, uses preferred submodel
+            %returns vector of intensity vs. time
+            %length of I may be less than ntime if model got lost
+            %I = zeros([1 obj.ntime]);
+            if numel(varargin) == 0
+                for t = 1:obj.ntime
+                    submodel = obj.channel(chan).models(cell,t).preferred_submodel;
+                    if obj.channel(chan).models(cell,t).isFit
+                        I(t) = obj.channel(chan).models(cell,t).intensity(submodel);
+                    else
+                        break
+                    end
+                end
+            else
+                submodel = varargin{1};
+                for t = 1:obj.ntime
+                    if obj.channel(chan).models(cell,t).isFit
+                        I(t) = obj.channel(chan).models(cell,t).intensity(submodel);
+                    else
+                        break
+                    end
+                end
+            end
+        end
+        
     end
-    
-    
 end

@@ -4,6 +4,7 @@ initI = max(intensities);
 minI = min(intensities);
 midI = (initI+minI) /2;
 
+ntime = numel(intensities);
 t0 = (max(find(intensities>midI)) + min(find(intensities<midI)))/2;
 
 x=[initI, max(1,t0), -0.1, min(intensities)];
@@ -19,7 +20,7 @@ options.Verbosity = 0;
 
     function err=intmodel(x)
         
-        F = model_results_lin(x);
+        F = model_results_lin(x, 1:ntime);
         err = sum((intensities - F).^2);
     end
 

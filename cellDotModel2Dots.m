@@ -1,7 +1,9 @@
 classdef cellDotModel2Dots < cellDotModel
     %cellDotModel2Dots - Fits a 2 dot model to a yeast cell
     
-    properties
+    properties (SetAccess = private)
+        n_submodels = 1
+        preferred_submodel = 1
     end
     
     methods
@@ -97,7 +99,13 @@ classdef cellDotModel2Dots < cellDotModel
             obj.sse = sse;
         end
         
-        function I = intensity(obj)
+        function I = intensity(obj, ~)
+            params = obj.censoredParams();
+            I = params(13) + params(17);
+            
+            if isnan(I)
+                I = 0;
+            end
         end
         %return fitted dot intensity
         
@@ -155,6 +163,7 @@ classdef cellDotModel2Dots < cellDotModel
             [X,Y,Z]=meshgrid(1:obj.imsize(1),1:obj.imsize(2),1:obj.imsize(3));
             grid=[X(:),Y(:),Z(:)];
         end
+        
     end
     
 end
