@@ -66,12 +66,12 @@ classdef fitModel < handle
             %if omitted, uses preferred submodel
             %returns vector of intensity vs. time
             %length of I may be less than ntime if model got lost
-            %I = zeros([1 obj.ntime]);
+
             if numel(varargin) == 0
                 for t = 1:obj.ntime
                     submodel = obj.channel(chan).models(cell,t).preferred_submodel;
                     if obj.channel(chan).models(cell,t).isFit
-                        I(t) = obj.channel(chan).models(cell,t).intensity(submodel);
+                        I(t) = obj.channel(chan).models(cell,t).getIntensity(submodel);
                     else
                         break
                     end
@@ -80,10 +80,24 @@ classdef fitModel < handle
                 submodel = varargin{1};
                 for t = 1:obj.ntime
                     if obj.channel(chan).models(cell,t).isFit
-                        I(t) = obj.channel(chan).models(cell,t).intensity(submodel);
+                        I(t) = obj.channel(chan).models(cell,t).getIntensity(submodel);
                     else
                         break
                     end
+                end
+            end
+        end
+        
+        function coords = coords(obj, chan, cell)
+            %uses preferred submodel
+            %returns a cell array of object coordinates vs. time
+            %length of I may be less than ntime if model got lost
+            %number of coordinates can vary if preferred submodel changes
+            for t = 1:obj.ntime
+                if obj.channel(chan).models(cell,t).isFit
+                    coords{t} = obj.channel(chan).models(cell,t).getCoords;
+                else
+                    break
                 end
             end
         end

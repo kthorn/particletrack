@@ -5,10 +5,11 @@ classdef reducedModel < handle
     properties
         directory
         ncells
-        ntime
         nchannels
-        flags
-        cells %ncells by nchannels array with subfields to store results
+        master
+        channels %info about each channel
+        cells %information about each cell
+        data %ncells by nchannels array with subfields to store results
         parentmodel %reference to model that data comes from
     end
     
@@ -17,12 +18,24 @@ classdef reducedModel < handle
             %constructor
             %build a reducedModel object from a fitModel object
             newobj.directory = inputmodel.directory;
-            %newobj.ncells = inputmodel.ncells;
-            newobj.ntime = inputmodel.ntime;
-            newobj.nchannels = inputmodel.nchannels;
+            newobj.master = inputmodel.master;
             newobj.parentmodel = inputmodel;
             
-            %populate cells array
+            %build channel list
+            newchan = 1;
+            for chan = 1:inputmodel.nchannels
+                %skip unmodeled channels
+                if strcmpi(inputmodel.channel(chan).modelname, 'None')
+                    continue;
+                end
+                newobj.channels(newchan).name = inputmodel.channel(chan).name;
+                newobj.channels(newchan).model = inputmodel.channel(chan).modelname;
+                newobj.channels(newchan).source = chan;
+                newchan = newchan + 1;
+            end
+            newobj.nchannels = newchan - 1;
+            
+            %populate data array
             %ignore cells that have fewer than Ngood successful fits
             Ngood = 10;
             newcell = 1;
@@ -31,29 +44,65 @@ classdef reducedModel < handle
                 if numel(I) < Ngood
                     continue;
                 end
-                for chan = 1:inputmodel.nchannels
-                    I = inputmodel.intensity(chan,cell);
-                    newobj.cells(newcell, chan).intensity = I;
-                    newobj.cells(newcell, chan).sourceCell = cell;
+                for chan = 1:newobj.nchannels
+                    I = inputmodel.intensity(newobj.channels(chan).source,cell);
+                    newobj.data(newcell, chan).intensity = I;
+                    newobj.data(newcell, chan).sourceCell = cell;
+                    newobj.data(newcell, chan).coords = inputmodel.coords(newobj.channels(chan).source,cell);
                 end
                 newcell = newcell + 1;
             end
             newobj.ncells = newcell - 1;
+            
+            %create flag storage
+            for n=1:newobj.ncells
+                newobj.cells(n).flags={};
+            end
         end
         
         function setIntensity (obj, chan)
             %retrieve intensities from channel chan of a fitmodel object
             %for all cells and store them here
             for cell = 1:obj.ncells
-                obj.cells(cell, chan).intensity = obj.parentmodel.intensity(chan,cell);
+                obj.data(cell, chan).intensity = obj.parentmodel.intensity(chan,cell);
             end
         end
         
         function modelIntensity(obj, chan)
             for cell = 1:obj.ncells
-                obj.cells(cell,chan).modelI = fit_disappearance_lin(obj.cells(cell, chan).intensity);
-                
+                obj.data(cell,chan).modelI = fit_disappearance_lin(obj.data(cell, chan).intensity);
             end
+        end
+        
+        function MI = masterIndex(obj)
+            %return index of master channel
+            for chan = 1:obj.nchannels
+                if strcmp(obj.master, obj.channels(chan).name)
+                    MI = chan;
+                end
+            end
+        end
+        
+        function addFlag(obj, cell, flagname)
+            if any(strcmp(obj.cells(cell).flags, flagname))
+                %flag exists, do nothing
+            else
+                nflags = numel(obj.cells(cell).flags);
+                obj.cells(cell).flags{nflags+1} = flagname;
+            end
+        end
+        
+        function remFlag(obj, cell, flagname)
+            obj.cells(cell).flags(strcmp(obj.cells(cell).flags, flagname)) = [];            
+        end
+        
+        function flagged = isFlag(obj, cell, flagname)
+            flagged = any(strcmp(obj.cells(cell).flags, flagname));
+        end
+        
+        function ntime = nTimePoints(obj, cell)
+            %return number of fitted time points for cell
+            ntime = numel(obj.data(cell,1).intensity);
         end
     end
     

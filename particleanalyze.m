@@ -22,7 +22,7 @@ function varargout = particleanalyze(varargin)
 
 % Edit the above text to modify the response to help particleanalyze
 
-% Last Modified by GUIDE v2.5 08-Mar-2010 16:01:33
+% Last Modified by GUIDE v2.5 11-Apr-2011 14:22:35
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -56,6 +56,7 @@ function particleanalyze_OpeningFcn(hObject, eventdata, handles, varargin)
 handles.output = hObject;
 
 handles.data.model=evalin('base','model');
+
 clist = handles.data.model.getChannelNames;
 disp('Loading Images ... ')
 handles.data.ims = MMparse(handles.data.model.directory,[],clist);
@@ -73,30 +74,36 @@ for n = 1:numel(clist)
     end
 end
 
+disp('Initializing ... ')
 %create reduceddata object to contain summarized data
 handles.data.outputModel = reducedModel(handles.data.model);
 
-disp('Modeling intensities ... ')
-%model intensities
-handles.data.outputModel.modelIntensity;
+%update channel menu dropdown
+for chan = 1:handles.data.outputModel.nchannels
+    clist{chan} = handles.data.outputModel.channels(chan).name;
+end
+set(handles.channel_menu, 'String', clist);
 
-for n = 1:size(handles.data.model,2)
-    
+disp('Modeling intensities ... ')
+%model intensities of master channel
+handles.data.outputModel.modelIntensity(handles.data.outputModel.masterIndex);
+
+MI = handles.data.outputModel.masterIndex;
+
+for n = 1:handles.data.outputModel.ncells    
     %find potential disappearing dots
-    if (handles.data.model(n).modelI(4)/(+handles.data.model(n).modelI(1)+handles.data.model(n).modelI(4)) < 0.3)
-        handles.data.model = addflag(handles.data.model, n, 'curious');
+    modelI = handles.data.outputModel.data(n,MI).modelI;
+    if (modelI(4) / (modelI(1) + modelI(4)) < 0.3)
+        handles.data.outputModel.addFlag(n, 'curious');
     end
 end
 
 update_image(handles.axes,handles.data);
 
-
-n_cells = size(handles.data.model,2);
-set(handles.cell_slider,'Max',n_cells);
+set(handles.cell_slider,'Max',handles.data.outputModel.ncells);
 set(handles.cell_slider,'Min',1);
 set(handles.cell_slider,'Value',1);
-
-set(handles.cell_slider,'SliderStep',[1/n_cells 10/n_cells]);
+set(handles.cell_slider,'SliderStep',[1/handles.data.outputModel.ncells 10/handles.data.outputModel.ncells]);
 disp('done')
 
 % Update handles structure
@@ -448,22 +455,65 @@ guidata(hObject, handles);
 
 function update_image(target_axis,data_struct)
 time=data_struct.time;
+model = data_struct.outputModel;
 cla(target_axis)
-imshow(max(data_struct.ims(:,:,:,time),[],3),[],'Parent',target_axis);
+
+%max intensity project
+image = squeeze(max(data_struct.ims(:,:,:,time,:),[],3));
+
+satfxn = 0.0002;
+if ndims(image) == 3
+    %generate RGB image
+    RGB = zeros([size(image,1), size(image,2), 3]);
+    [minI, maxI] = satvals(image(:,:,1), satfxn);
+    tempim = double(image(:,:,1) - minI);
+    tempim = tempim./maxI;
+    tempim = max(tempim,0);
+    tempim = min(tempim,1);
+    RGB(:,:,2)=tempim;
+    
+    [minI, maxI] = satvals(image(:,:,2), satfxn);
+    tempim = double(image(:,:,2) - minI);
+    tempim = tempim./maxI;
+    tempim = max(tempim,0);
+    tempim = min(tempim,1);
+    RGB(:,:,1)=tempim;
+else    
+    [minI, maxI] = satvals(image, satfxn);
+    tempim = double(image - minI);
+    tempim = tempim./maxI;
+    tempim = max(tempim,0);
+    tempim = min(tempim,1);
+    RGB = tempim;
+end
+
+imshow(RGB,'Parent',target_axis);
 hold on
-for n=1:size(data_struct.model,2)
+
+%now plot coordinates
+%for now, just do master channel
+MI = model.masterIndex;
+for cell=1:model.ncells
+    % get coords
+    if (time > model.nTimePoints(cell))
+        continue; %cell was not fit at this time point
+    else
+        coords = model.data(cell, MI).coords{time};
+    end
+    
     color = 'r';
-    if any (strcmp(data_struct.model(n).flags, 'curious'))
+    if model.isFlag(cell, 'curious')
         color = 'g';
     end
-    if (n == data_struct.selected)
+    if (cell == data_struct.selected)
         color = 'w';
     end
-    if data_struct.model(n).ndots(time)==2
-        plot(target_axis,data_struct.model(n).params_2dot(time,10),data_struct.model(n).params_2dot(time,11),[color,'s']);
-        plot(target_axis,data_struct.model(n).params_2dot(time,14),data_struct.model(n).params_2dot(time,15),[color,'s']);
-    else            
-        plot(target_axis,data_struct.model(n).params_1dot(time,10),data_struct.model(n).params_1dot(time,11),[color,'o']);
+    if (size(coords,1)>1)
+        for n=1:size(coords,2)
+            plot(target_axis,coords(n,1),coords(n,2),[color,'s']);
+        end
+     else            
+        plot(target_axis,coords(1),coords(2),[color,'o']);
     end
 end
 
@@ -494,22 +544,22 @@ function handles = update_selection(handles, selected_cell)
 handles.data.selected=selected_cell;
 set(handles.cell_text, 'String', sprintf('%u', selected_cell));
 set(handles.cell_slider, 'Value', selected_cell);
-if any(strcmp(handles.data.model(selected_cell).flags, 'curious'))
+if handles.data.outputModel.isFlag(selected_cell, 'curious')
     set(handles.curious_flag, 'Value', get(handles.curious_flag, 'Max'));
 else    
     set(handles.curious_flag, 'Value', get(handles.curious_flag, 'Min'));
 end
-if any(strcmp(handles.data.model(selected_cell).flags, 'single'))
+if handles.data.outputModel.isFlag(selected_cell, 'single')
     set(handles.single_flag, 'Value', get(handles.single_flag, 'Max'));
 else    
     set(handles.single_flag, 'Value', get(handles.single_flag, 'Min'));
 end
-if any(strcmp(handles.data.model(selected_cell).flags, 'splitting'))
+if handles.data.outputModel.isFlag(selected_cell, 'splitting')
     set(handles.splitting_flag, 'Value', get(handles.splitting_flag, 'Max'));
 else
     set(handles.splitting_flag, 'Value', get(handles.splitting_flag, 'Min'));
 end
-if any(strcmp(handles.data.model(selected_cell).flags, 'disappearing'))
+if handles.data.outputModel.isFlag(selected_cell, 'disappearing')
     set(handles.disappearing_flag, 'Value', get(handles.disappearing_flag, 'Max'));
 else
     set(handles.disappearing_flag, 'Value', get(handles.disappearing_flag, 'Min'));
@@ -517,4 +567,47 @@ end
 update_image(handles.axes,handles.data);
 
 
+% --- Executes on selection change in channel_menu.
+function channel_menu_Callback(hObject, eventdata, handles)
+% hObject    handle to channel_menu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
 
+% Hints: contents = cellstr(get(hObject,'String')) returns channel_menu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from channel_menu
+
+
+% --- Executes during object creation, after setting all properties.
+function channel_menu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to channel_menu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in data_menu.
+function data_menu_Callback(hObject, eventdata, handles)
+% hObject    handle to data_menu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns data_menu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from data_menu
+
+
+% --- Executes during object creation, after setting all properties.
+function data_menu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to data_menu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end

@@ -40,6 +40,9 @@ classdef cellDotModel < handle
         dist = getDistance(obj)
         %return distance between two dots in case of multi-dot model
         
+        coords = getCoords(obj)
+        %return x,y coordinates of object(s) for plotting
+        
         modelim = showModel(obj)
         %return the modeled image
         
