@@ -257,16 +257,15 @@ wavelengthlist = get(handles.wavelength_list,'String');
 images = MMparse(get(handles.dir_to_read,'String'),1,wavelengthlist); %load first time point, all wavelengths
 %currently we only handle two channels properly
 
-c1 = squeeze(images(:,:,:,:,1));
-c2 = squeeze(images(:,:,:,:,2));
-c1 = c1 - median(c1(:));
-c2 = c2 - median(c2(:));
+for cidx = 1:size(images,5)
+    slice = squeeze(images(:,:,:,:,cidx));
+    %background subtract
+    slice = slice - median(slice(:));
+    handles.data.images(:,:,:,cidx)=slice;
+end
 
-%background subtract
-handles.data.images(:,:,:,1)=c1;
-handles.data.images(:,:,:,2)=c2;
 dims = size(handles.data.images);
-set(handles.status,'String',['Loaded ', sprintf('%d', prod(dims(3:4))), ' Images']);
+set(handles.status,'String',['Loaded ', sprintf('%d', prod(dims(3:end))), ' Images']);
 
 set(handles.queue,'Enable','off');
 set(handles.find_dots,'Enable','on');
@@ -351,21 +350,27 @@ if ndims(image) == 3
     RGB = zeros([size(image,1), size(image,2), 3]);
     [minI, maxI] = satvals(image(:,:,1), satfxn);
     tempim = double(image(:,:,1) - minI);
-    tempim = tempim./maxI;
+    if maxI >0
+        tempim = tempim./maxI;
+    end
     tempim = max(tempim,0);
     tempim = min(tempim,1);
     RGB(:,:,2)=tempim;
     
     [minI, maxI] = satvals(image(:,:,2), satfxn);
     tempim = double(image(:,:,2) - minI);
-    tempim = tempim./maxI;
+    if maxI >0
+        tempim = tempim./maxI;
+    end
     tempim = max(tempim,0);
     tempim = min(tempim,1);
     RGB(:,:,1)=tempim;
 else    
     [minI, maxI] = satvals(image, satfxn);
     tempim = double(image - minI);
-    tempim = tempim./maxI;
+    if maxI >0
+        tempim = tempim./maxI;
+    end
     tempim = max(tempim,0);
     tempim = min(tempim,1);
     RGB = tempim;
