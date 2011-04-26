@@ -325,16 +325,6 @@ for t=1:size(handles.data.ims,4)
 end
 guidata(hObject, handles);
 
-% --- Executes on button press in delete_tracks.
-function delete_tracks_Callback(hObject, eventdata, handles)
-% hObject    handle to delete_tracks (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-update_image(handles);
-
-guidata(hObject, handles);
-
 
 % --- Executes on button press in curious_flag.
 function curious_flag_Callback(hObject, eventdata, handles)
