@@ -61,12 +61,21 @@ classdef fitModel < handle
             end
         end
         
+        function chan_idx = getChannelIndex(obj, name);
+            chan_idx =0;
+            for n=1:numel(obj.channel)
+                if strcmp(obj.channel(n).name, name)
+                    chan_idx = n;
+                end
+            end
+        end
+        
         function I = intensity(obj, chan, cell, varargin)
             %one optional argument - submodel to get intensity for
             %if omitted, uses preferred submodel
             %returns vector of intensity vs. time
             %length of I may be less than ntime if model got lost
-
+            
             if numel(varargin) == 0
                 for t = 1:obj.ntime
                     submodel = obj.channel(chan).models(cell,t).preferred_submodel;
@@ -88,6 +97,33 @@ classdef fitModel < handle
             end
         end
         
+        function dist = distance(obj, chan, cell, varargin)
+            %one optional argument - submodel to get intensity for
+            %if omitted, uses preferred submodel
+            %returns vector of intensity vs. time
+            %length of I may be less than ntime if model got lost
+            
+            if numel(varargin) == 0
+                for t = 1:obj.ntime
+                    submodel = obj.channel(chan).models(cell,t).preferred_submodel;
+                    if obj.channel(chan).models(cell,t).isFit
+                        dist(t) = obj.channel(chan).models(cell,t).getDistance(submodel);
+                    else
+                        break
+                    end
+                end
+            else
+                submodel = varargin{1};
+                for t = 1:obj.ntime
+                    if obj.channel(chan).models(cell,t).isFit
+                        dist(t) = obj.channel(chan).models(cell,t).getDistance(submodel);
+                    else
+                        break
+                    end
+                end
+            end
+        end
+        
         function coords = coords(obj, chan, cell)
             %uses preferred submodel
             %returns a cell array of object coordinates vs. time
@@ -99,6 +135,22 @@ classdef fitModel < handle
                 else
                     break
                 end
+            end
+        end
+        
+        function MI = masterIndex(obj)
+            %return index of master channel
+            for chan = 1:obj.nchannels
+                if strcmp(obj.master, obj.channel(chan).name)
+                    MI = chan;
+                end
+            end
+        end
+        
+        function setPreferredSubmodel(obj, chan, cell, submodel)
+            %submodel is a 1 x ntime vector
+            for t = 1:numel(submodel)
+                obj.channel(chan).models(cell,t).setPreferredSubmodel(submodel(t));
             end
         end
         

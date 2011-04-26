@@ -45,14 +45,16 @@ classdef reducedModel < handle
                     continue;
                 end
                 for chan = 1:newobj.nchannels
-                    I = inputmodel.intensity(newobj.channels(chan).source,cell);
-                    newobj.data(newcell, chan).intensity = I;
                     newobj.data(newcell, chan).sourceCell = cell;
                     newobj.data(newcell, chan).coords = inputmodel.coords(newobj.channels(chan).source,cell);
                 end
                 newcell = newcell + 1;
             end
             newobj.ncells = newcell - 1;
+            for chan = 1:newobj.nchannels
+                newobj.setIntensity(chan);
+                newobj.setDistance(chan);
+            end
             
             %create flag storage
             for n=1:newobj.ncells
@@ -65,6 +67,14 @@ classdef reducedModel < handle
             %for all cells and store them here
             for cell = 1:obj.ncells
                 obj.data(cell, chan).intensity = obj.parentmodel.intensity(chan,cell);
+            end
+        end
+        
+        function setDistance (obj, chan)
+            %retrieve distances from channel chan of a fitmodel object
+            %for all cells and store them here
+            for cell = 1:obj.ncells
+                obj.data(cell, chan).distance = obj.parentmodel.distance(chan,cell);
             end
         end
         
@@ -104,6 +114,25 @@ classdef reducedModel < handle
             %return number of fitted time points for cell
             ntime = numel(obj.data(cell,1).intensity);
         end
+        
+        function setReport(obj, chan, reporttype)
+            %return index of master channel
+            for cidx = 1:obj.nchannels
+                if strcmp(chan, obj.channels(cidx).name)
+                    obj.channels(cidx).report = reporttype;
+                end
+            end
+        end
+        
+        function report = getReport(obj, chan)
+            %return index of master channel
+            for cidx = 1:obj.nchannels
+                if strcmp(chan, obj.channels(cidx).name)
+                    report = obj.channels(cidx).report;
+                end
+            end
+        end
+        
     end
     
 end

@@ -8,8 +8,8 @@ function varargout = particleanalyze(varargin)
 %
 %      PARTICLEANALYZE('CALLBACK',hObject,eventData,handles,...) calls the local
 %      function named CALLBACK in PARTICLEANALYZE.M with the given input arguments.
-%
 %      PARTICLEANALYZE('Property','Value',...) creates a new PARTICLEANALYZE or raises the
+%
 %      existing singleton*.  Starting from the left, property value pairs are
 %      applied to the GUI before particleanalyze_OpeningFcn gets called.  An
 %      unrecognized property name or invalid value makes property application
@@ -22,7 +22,7 @@ function varargout = particleanalyze(varargin)
 
 % Edit the above text to modify the response to help particleanalyze
 
-% Last Modified by GUIDE v2.5 11-Apr-2011 14:22:35
+% Last Modified by GUIDE v2.5 25-Apr-2011 16:37:15
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -63,42 +63,18 @@ handles.data.ims = MMparse(handles.data.model.directory,[],clist);
 handles.data.time=1;
 handles.data.selected=-1;
 
-%need to see if the model has multiple submodels, and if so, pick the best
-%one at each time point
-for n = 1:numel(clist)
-    if handles.data.model.channel(n).models(1,1).n_submodels > 1
-        %need to determine which submodel to use
-        disp('Determining number of dots ... ')
-        crossover = str2double(get(handles.crossover, 'Value'));
-        penalty = str2double(get(handles.penalty, 'Value'));
-    end
-end
+%call ndots, set intensities, model
+handles = set_ndots_intensities(handles);
 
 disp('Initializing ... ')
-%create reduceddata object to contain summarized data
-handles.data.outputModel = reducedModel(handles.data.model);
-
 %update channel menu dropdown
 for chan = 1:handles.data.outputModel.nchannels
     clist{chan} = handles.data.outputModel.channels(chan).name;
+    handles.data.outputModel.setReport(handles.data.outputModel.channels(chan).name, 'Intensities');
 end
 set(handles.channel_menu, 'String', clist);
 
-disp('Modeling intensities ... ')
-%model intensities of master channel
-handles.data.outputModel.modelIntensity(handles.data.outputModel.masterIndex);
-
-MI = handles.data.outputModel.masterIndex;
-
-for n = 1:handles.data.outputModel.ncells    
-    %find potential disappearing dots
-    modelI = handles.data.outputModel.data(n,MI).modelI;
-    if (modelI(4) / (modelI(1) + modelI(4)) < 0.3)
-        handles.data.outputModel.addFlag(n, 'curious');
-    end
-end
-
-update_image(handles.axes,handles.data);
+update_image(handles);
 
 set(handles.cell_slider,'Max',handles.data.outputModel.ncells);
 set(handles.cell_slider,'Min',1);
@@ -130,20 +106,28 @@ function plot_intensity_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 if handles.data.selected > 0
-    int_1dot = handles.data.model(handles.data.selected).params_1dot(:,13);
-    int_2dot = handles.data.model(handles.data.selected).params_2dot(:,13)*2;    
+    cell = handles.data.selected;
+    MI = handles.data.model.masterIndex;
+    %get final assigned intensity
+    I = handles.data.outputModel.data(cell, MI).intensity;
+    timepts = 1:numel(I);
+    modelI = model_results_lin(handles.data.outputModel.data(cell,MI).modelI, timepts);
     figure(1)
     clf
-    subplot(3,1,1)
-    plot(int_1dot);
-    title('1 dot intensity')
-    subplot(3,1,2)
-    plot(int_2dot);
-    title('2 dot intensity')
-    subplot(3,1,3)
-    plot(handles.data.model(handles.data.selected).dotI);
+    
+    if handles.data.model.channel(MI).models(cell, 1).n_submodels > 1
+        %get individual submodel intensities
+        subplot(3,1,1)
+        plot(handles.data.model.intensity(MI, cell, 1));
+        title('1 dot intensity')
+        subplot(3,1,2)
+        plot(handles.data.model.intensity(MI, cell, 2));
+        title('2 dot intensity')
+        subplot(3,1,3)
+    end
+    plot(I,'b');
     hold on
-    plot(model_results_lin(handles.data.model(handles.data.selected).modelI),'r')
+    plot(modelI,'r');
     title('Intensity of best fitting model')
 end
 guidata(hObject, handles);
@@ -161,21 +145,49 @@ function export_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-results = handles.data.model;
-results = rmfield(results, {'startims', 'modelims_1dot', 'modelims_2dot', 'initparams'});
+%loop over channels, generating excel spreadsheet with details
+%sheets as follows:
+%if intensities are output, two sheets, one with raw intensities, one with
+%modeled.  Modeled also has flag info.
+%if disstances are output, add a sheet for positions
+outputfile = fullfile(handles.data.model.directory, 'analysis.xls');
+%remove old version, if present
+delete(outputfile);
 
-%reformat model intensities to match previous version
-%reformat from midpoint, slope to startpoint, duration
-%and from start intensity + baseline intensity to start intensity, end
-%intensity
-for n=1:numel(results)
-    results(n).modelI(2) = results(n).modelI(2) + (0.5/results(n).modelI(3));
-    results(n).modelI(3) = -1/results(n).modelI(3);
-    results(n).modelI(1) = results(n).modelI(1) + results(n).modelI(4);
+for cidx=1:handles.data.outputModel.nchannels
+    cname = handles.data.outputModel.channels(cidx).name;
+    report = handles.data.outputModel.channels(cidx).report;
+    if strcmp(report, 'Intensities') || strcmp(report, 'Both')
+        %loop over cells
+        for clidx = 1:handles.data.outputModel.ncells
+            Iall(clidx,:) = handles.data.outputModel.data(clidx, cidx).intensity;
+            modelI = handles.data.outputModel.data(clidx,cidx).modelI;
+            %reformat model intensities to match previous version
+            %reformat from midpoint, slope to startpoint, duration
+            %and from start intensity + baseline intensity to start intensity, end
+            %intensity
+            modelI(2) = modelI(2) + (0.5/modelI(3));
+            modelI(3) = -1/modelI(3);
+            modelI(1) = modelI(1) + modelI(4);
+            Imall(clidx,:) = modelI;            
+            flags(clidx) = (strcat(handles.data.outputModel.cells(clidx).flags));
+        end
+        sheetname =[cname,' intensities'];
+        xlswrite(outputfile, Iall, sheetname);
+        sheetname =[cname,' model'];
+        xlswrite(outputfile, flags', sheetname, 'A1');        
+        xlswrite(outputfile, Imall, sheetname, 'B1');        
+    end
+        if strcmp(report, 'Distances') || strcmp(report, 'Both')
+        %loop over cells
+        for clidx = 1:handles.data.outputModel.ncells
+            Dall(clidx,:) = handles.data.outputModel.data(clidx, cidx).distance;
+        end
+        sheetname =[cname,' distances'];
+        xlswrite(outputfile, Dall, sheetname);   
+    end
+    
 end
-
-variable_name=inputdlg('Name for output data');
-assignin('base', variable_name{1}, results);
 
 
 % --- Executes on button press in selectcell.
@@ -186,8 +198,11 @@ function selectcell_Callback(hObject, eventdata, handles)
 
 [x,y]=ginput(1);
 dist=zeros([1 size(handles.data.model,2)]);
-for n=1:size(handles.data.model,2)
-    dist(n) = (handles.data.model(n).initparams(11)-x).^2 + (handles.data.model(n).initparams(10)-y).^2;
+MI = handles.data.outputModel.masterIndex;
+for n=1:handles.data.model.ncells
+    coords = handles.data.outputModel.data(n, MI).coords{handles.data.time};
+    coords = coords(1,:);
+    dist(n) = sum((coords-[x, y]).^2);
 end
 [junk, selected_point]=min(dist);
 handles = update_selection(handles, selected_point);
@@ -211,18 +226,6 @@ handles = update_selection(handles, n_cell);
 
 guidata(hObject, handles);
 
-% --- Executes during object creation, after setting all properties.
-function cell_slider_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to cell_slider (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: slider controls usually have a light gray background.
-if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor',[.9 .9 .9]);
-end
-
-
 
 function cell_text_Callback(hObject, eventdata, handles)
 % hObject    handle to cell_text (see GCBO)
@@ -239,19 +242,6 @@ handles = update_selection(handles, n_cell);
 guidata(hObject, handles);
 
 
-% --- Executes during object creation, after setting all properties.
-function cell_text_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to cell_text (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
 % --- Executes on button press in showmodel.
 function showmodel_Callback(hObject, eventdata, handles)
 % hObject    handle to showmodel (see GCBO)
@@ -259,29 +249,65 @@ function showmodel_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 if handles.data.selected > 0
-    %show one and two dot fits and relative performance    
-    figure(1)
-    clf
-    %plot relative performance of one vs two-dot fits
-    plot(handles.data.model(handles.data.selected).fit_2dot./handles.data.model(handles.data.selected).fit_1dot,'b')
-    hold on
-    plot(handles.data.model(handles.data.selected).ndots,'r');
-    title('1 dot error / 2 dot error (in blue); Ndots (in red)');
-        
+    cell = handles.data.selected;
+    cname_list = get(handles.channel_menu, 'String');
+    cname = cname_list{get(handles.channel_menu, 'Value')};
+    chan = handles.data.model.getChannelIndex(cname);
+    
+    if handles.data.model.channel(chan).models(cell, 1).n_submodels > 1
+        %show one and two dot fits and relative performance
+        figure(1)
+        clf
+        fitratio = [];
+        ndots =[];
+        for t = 1:handles.data.model.ntime
+            if handles.data.model.channel(chan).models(cell, t).isFit
+                sse = handles.data.model.channel(chan).models(cell, t).sse;
+                fitratio(t) = sse(2)/sse(1);
+                ndots(t) = handles.data.model.channel(chan).models(cell, t).preferred_submodel;
+            else
+                break
+            end
+        end
+        plot(fitratio,'b')
+        hold on
+        plot(ndots,'r');
+        title('1 dot error / 2 dot error (in blue); Ndots (in red)');
+    end
     figure(2)
+    boxsize = handles.data.model.channel(chan).models(cell, 1).boxsize;
     for t=1:60
         subplot(4,15,t)
-        dispim = pair_1dot_images(handles.data.model, handles.data.selected, t);
+        %cutout original image
+        coords = handles.data.model.channel(chan).models(cell, t).initcoords;
+        subimage = squeeze(handles.data.ims(coords(2)-boxsize:coords(2)+boxsize,coords(1)-boxsize:coords(1)+boxsize,:,t,chan));
+        dispim=max(subimage,[],3);
+        dispim=dispim-min(dispim(:));
+        dispim=[dispim;zeros([1 size(dispim,1)])];
+        modelim = handles.data.model.channel(chan).models(cell, t).showModel(1);
+        fitim=max(modelim,[],3);
+        fitim=fitim-min(fitim(:));
+        dispim=[dispim; fitim];
         imshow(dispim, [], 'InitialMagnification', 'fit')
         title(strcat(sprintf('%d',t)));
     end
-    
-    figure(3)
-    for t=1:60
-        subplot(4,15,t)
-        dispim = pair_2dot_images(handles.data.model, handles.data.selected, t);
-        imshow(dispim, [], 'InitialMagnification', 'fit')
-        title(strcat(sprintf('%d',t)));
+    if handles.data.model.channel(chan).models(cell, 1).n_submodels > 1
+        figure(3)
+        for t=1:60
+            subplot(4,15,t)
+            %cutout original image
+            coords = handles.data.model.channel(chan).models(cell, t).initcoords;
+            subimage = squeeze(handles.data.ims(coords(2)-boxsize:coords(2)+boxsize,coords(1)-boxsize:coords(1)+boxsize,:,t,chan));
+            dispim=max(subimage,[],3);
+            dispim=dispim-min(dispim(:));
+            dispim=[dispim;zeros([1 size(dispim,1)])];
+            modelim = handles.data.model.channel(chan).models(cell, t).showModel(2);
+            fitim=max(modelim,[],3);
+            fitim=fitim-min(fitim(:));
+            dispim=[dispim; fitim];
+            imshow(dispim, [], 'InitialMagnification', 'fit')
+            title(strcat(sprintf('%d',t)));
+        end
     end
 end
 
@@ -294,11 +320,10 @@ function play_tracks_Callback(hObject, eventdata, handles)
 
 for t=1:size(handles.data.ims,4)
     handles.data.time=t;
-    update_image(handles.axes,handles.data);
-    
+    update_image(handles);    
     drawnow expose update
 end
-
+guidata(hObject, handles);
 
 % --- Executes on button press in delete_tracks.
 function delete_tracks_Callback(hObject, eventdata, handles)
@@ -306,8 +331,7 @@ function delete_tracks_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles.data.model(handles.data.selected)=[];
-update_image(handles.axes,handles.data);
+update_image(handles);
 
 guidata(hObject, handles);
 
@@ -320,13 +344,12 @@ function curious_flag_Callback(hObject, eventdata, handles)
 % Hint: get(hObject,'Value') returns toggle state of curious_flag
 
 if get(hObject, 'Value') == get(hObject, 'Max')
-    handles.data.model = addflag(handles.data.model, handles.data.selected, 'curious');
+    handles.data.outputModel.addFlag(handles.data.selected, 'curious');
 elseif get(hObject, 'Value') == get(hObject, 'Min')    
-    handles.data.model = remflag(handles.data.model, handles.data.selected, 'curious');
+    handles.data.outputModel.remFlag(handles.data.selected, 'curious');
 end
 
 guidata(hObject, handles);
-
 
 
 % --- Executes on button press in disappearing_flag.
@@ -337,9 +360,9 @@ function disappearing_flag_Callback(hObject, eventdata, handles)
 % Hint: get(hObject,'Value') returns toggle state of disappearing_flag
 
 if get(hObject, 'Value') == get(hObject, 'Max')
-    handles.data.model = addflag(handles.data.model, handles.data.selected, 'disappearing');
+    handles.data.outputModel.addFlag(handles.data.selected, 'disappearing');
 elseif get(hObject, 'Value') == get(hObject, 'Min')    
-    handles.data.model = remflag(handles.data.model, handles.data.selected, 'disappearing');
+    handles.data.outputModel.remFlag(handles.data.selected, 'disappearing');
 end
 
 guidata(hObject, handles);
@@ -352,9 +375,9 @@ function single_flag_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 % Hint: get(hObject,'Value') returns toggle state of single_flag
 if get(hObject, 'Value') == get(hObject, 'Max')
-    handles.data.model = addflag(handles.data.model, handles.data.selected, 'single');
+    handles.data.outputModel.addFlag(handles.data.selected, 'single');
 elseif get(hObject, 'Value') == get(hObject, 'Min')    
-    handles.data.model = remflag(handles.data.model, handles.data.selected, 'single');
+    handles.data.outputModel.remFlag(handles.data.selected, 'single');
 end
 
 guidata(hObject, handles);
@@ -367,56 +390,12 @@ function splitting_flag_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 % Hint: get(hObject,'Value') returns toggle state of splitting_flag
 if get(hObject, 'Value') == get(hObject, 'Max')
-    handles.data.model = addflag(handles.data.model, handles.data.selected, 'splitting');
+    handles.data.outputModel.addFlag(handles.data.selected, 'splitting');
 elseif get(hObject, 'Value') == get(hObject, 'Min')    
-    handles.data.model = remflag(handles.data.model, handles.data.selected, 'splitting');
+    handles.data.outputModel.remFlag(handles.data.selected, 'splitting');
 end
 
 guidata(hObject, handles);
-
-function crossover_Callback(hObject, eventdata, handles)
-% hObject    handle to crossover (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of crossover as text
-%        str2double(get(hObject,'String')) returns contents of crossover as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function crossover_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to crossover (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-
-function penalty_Callback(hObject, eventdata, handles)
-% hObject    handle to penalty (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of penalty as text
-%        str2double(get(hObject,'String')) returns contents of penalty as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function penalty_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to penalty (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
 
 % --- Executes on button press in recall_dots.
 function recall_dots_Callback(hObject, eventdata, handles)
@@ -424,42 +403,56 @@ function recall_dots_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-disp('Determining number of dots ... ')
-crossover = str2double(get(handles.crossover, 'String'));
-penalty = str2double(get(handles.penalty, 'String'));
-for n=1:size(handles.data.model,2)
-    fitratio = handles.data.model(n).fit_2dot./handles.data.model(n).fit_1dot;
-    handles.data.model(n).ndots = fit_ndots2(fitratio, crossover, penalty);   
-end
-update_image(handles.axes,handles.data);
-
-disp('Modeling intensities ... ')
-%calculate intensities
-for n = 1:size(handles.data.model,2)
-    int_1dot = handles.data.model(n).params_1dot(:,13);
-    int_2dot = handles.data.model(n).params_2dot(:,13)*2;
-    handles.data.model(n).dotI = int_1dot .* (handles.data.model(n).ndots' == 1) + int_2dot .* (handles.data.model(n).ndots' == 2);
-    
-    %model intensity disappearance
-    handles.data.model(n).modelI = fit_disappearance_lin(handles.data.model(n).dotI');
-    
-    %find potential disappearing dots
-    if (handles.data.model(n).modelI(4)/(+handles.data.model(n).modelI(1)+handles.data.model(n).modelI(4)) < 0.3)
-        handles.data.model = addflag(handles.data.model, n, 'curious');
-    end
-end
+handles = set_ndots_intensities(handles);
+update_image(handles);
 
 disp('Done')
 guidata(hObject, handles);
 
+% --- Executes on selection change in data_menu.
+function data_menu_Callback(hObject, eventdata, handles)
+% hObject    handle to data_menu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
 
-function update_image(target_axis,data_struct)
-time=data_struct.time;
-model = data_struct.outputModel;
+%get selected export type
+contents = cellstr(get(hObject,'String'));
+export = contents{get(hObject,'Value')};
+
+contents = cellstr(get(handles.channel_menu,'String'));
+chan = contents{get(handles.channel_menu,'Value')};
+handles.data.outputModel.setReport(chan, export);
+guidata(hObject, handles);
+
+% --- Executes on selection change in channel_menu.
+function channel_menu_Callback(hObject, eventdata, handles)
+% hObject    handle to channel_menu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+contents = cellstr(get(hObject,'String'));
+chan = contents{get(hObject,'Value')};
+report = handles.data.outputModel.getReport(chan);
+
+contents = cellstr(get(handles.data_menu,'String'));
+for n=1:numel(contents)
+    if strcmp(contents{n}, report)
+        set(handles.data_menu,'Value',n);
+    end
+end
+
+%%%% end of used callbacks %%%%
+
+%%%% utility functions %%%%
+
+function update_image(handles)
+time=handles.data.time;
+model = handles.data.outputModel;
+target_axis = handles.axes;
 cla(target_axis)
 
 %max intensity project
-image = squeeze(max(data_struct.ims(:,:,:,time,:),[],3));
+image = squeeze(max(handles.data.ims(:,:,:,time,:),[],3));
 
 satfxn = 0.0002;
 if ndims(image) == 3
@@ -491,21 +484,24 @@ imshow(RGB,'Parent',target_axis);
 hold on
 
 %now plot coordinates
-%for now, just do master channel
-MI = model.masterIndex;
+
+cname_list = get(handles.channel_menu, 'String');
+cname = cname_list{get(handles.channel_menu, 'Value')};
+chan = handles.data.model.getChannelIndex(cname);
+
 for cell=1:model.ncells
     % get coords
     if (time > model.nTimePoints(cell))
         continue; %cell was not fit at this time point
     else
-        coords = model.data(cell, MI).coords{time};
+        coords = model.data(cell, chan).coords{time};
     end
     
     color = 'r';
     if model.isFlag(cell, 'curious')
         color = 'g';
     end
-    if (cell == data_struct.selected)
+    if (cell == handles.data.selected)
         color = 'w';
     end
     if (size(coords,1)>1)
@@ -515,29 +511,8 @@ for cell=1:model.ncells
      else            
         plot(target_axis,coords(1),coords(2),[color,'o']);
     end
+
 end
-
-function dispim = pair_1dot_images(model, n, t)
-dispim=max(model(n).startims(:,:,:,t),[],3);
-dispim=dispim-min(dispim(:));
-dispim=[dispim;zeros([1 size(dispim,1)])];
-fitim=max(model(n).modelims_1dot(:,:,:,t),[],3);
-fitim=fitim-min(fitim(:));
-dispim=[dispim; fitim];
-
-function dispim = pair_2dot_images(model, n, t)
-dispim=max(model(n).startims(:,:,:,t),[],3);
-dispim=dispim-min(dispim(:));
-dispim=[dispim;zeros([1 size(dispim,1)])];
-fitim=max(model(n).modelims_2dot(:,:,:,t),[],3);
-fitim=fitim-min(fitim(:));
-dispim=[dispim; fitim];
-
-function model = addflag (model, n, flag)
-model(n).flags = [model(n).flags, flag];
-
-function model = remflag (model, n, flag)
-model(n).flags(strcmp(model(n).flags, flag)) = [];
 
 function handles = update_selection(handles, selected_cell)
 
@@ -564,19 +539,53 @@ if handles.data.outputModel.isFlag(selected_cell, 'disappearing')
 else
     set(handles.disappearing_flag, 'Value', get(handles.disappearing_flag, 'Min'));
 end
-update_image(handles.axes,handles.data);
+update_image(handles);
 
+function handles = set_ndots_intensities(handles)
+%need to see if the model has multiple submodels, and if so, pick the best
+%one at each time point
+model = handles.data.model;
+crossover = str2double(get(handles.crossover, 'String'));
+penalty = str2double(get(handles.penalty, 'String'));
 
-% --- Executes on selection change in channel_menu.
-function channel_menu_Callback(hObject, eventdata, handles)
-% hObject    handle to channel_menu (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+clist = model.getChannelNames;
+for chan = 1:numel(clist)
+    if model.channel(chan).models(1,1).n_submodels > 1
+        %need to determine which submodel to use
+        disp('Determining number of dots ... ')
+        for cell = 1:model.ncells
+            fitratio = [];
+            for t = 1:model.ntime
+                if model.channel(chan).models(cell, t).isFit
+                    sse = model.channel(chan).models(cell, t).sse;
+                    fitratio(t) = sse(2)/sse(1);
+                else
+                    break
+                end
+            end
+            ndots = fit_ndots2(fitratio, crossover, penalty);
+            model.setPreferredSubmodel(chan, cell, ndots);
+        end
+    end
+end
 
-% Hints: contents = cellstr(get(hObject,'String')) returns channel_menu contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from channel_menu
+handles.data.outputModel = reducedModel(handles.data.model);
 
+disp('Modeling intensities ... ')
+%model intensities of master channel
+handles.data.outputModel.modelIntensity(handles.data.outputModel.masterIndex);
 
+MI = handles.data.outputModel.masterIndex;
+
+for n = 1:handles.data.outputModel.ncells    
+    %find potential disappearing dots
+    modelI = handles.data.outputModel.data(n,MI).modelI;
+    if (modelI(4) / (modelI(1) + modelI(4)) < 0.3)
+        handles.data.outputModel.addFlag(n, 'curious');
+    end
+end
+
+%%%% Unused Callbacks %%%%
 % --- Executes during object creation, after setting all properties.
 function channel_menu_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to channel_menu (see GCBO)
@@ -590,16 +599,6 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on selection change in data_menu.
-function data_menu_Callback(hObject, eventdata, handles)
-% hObject    handle to data_menu (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = cellstr(get(hObject,'String')) returns data_menu contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from data_menu
-
-
 % --- Executes during object creation, after setting all properties.
 function data_menu_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to data_menu (see GCBO)
@@ -610,4 +609,70 @@ function data_menu_CreateFcn(hObject, eventdata, handles)
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
+end
+
+function penalty_Callback(hObject, eventdata, handles)
+% hObject    handle to penalty (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of penalty as text
+%        str2double(get(hObject,'String')) returns contents of penalty as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function penalty_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to penalty (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+function crossover_Callback(hObject, eventdata, handles)
+% hObject    handle to crossover (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of crossover as text
+%        str2double(get(hObject,'String')) returns contents of crossover as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function crossover_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to crossover (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+% --- Executes during object creation, after setting all properties.
+function cell_text_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to cell_text (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes during object creation, after setting all properties.
+function cell_slider_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to cell_slider (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
 end

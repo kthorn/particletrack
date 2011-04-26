@@ -5,9 +5,9 @@ minI = min(intensities);
 midI = (initI+minI) /2;
 
 ntime = numel(intensities);
-t0 = (max(find(intensities>midI)) + min(find(intensities<midI)))/2;
+t0 = (max(find(intensities>=midI)) + min(find(intensities<=midI)))/2;
 
-x=[initI, max(1,t0), -0.1, min(intensities)];
+x=[initI, max(1,t0), -0.1, minI];
 
 %simulated annealing parameters
 %ANNEAL is from Joachim Vandekerckhove, found on Matlab Central

@@ -4,7 +4,7 @@ classdef models
         modelnames = {'1 or 2dot','2dot','Track only','None'};
         %function handles to class that implements that model
         %should inherit from cellDotModel
-        modelfunctions = {@yeast_dot_track, @cellDotModel2Dots, @track_only, @none};
+        modelfunctions = {@cellDotModel1v2DotOrig, @cellDotModel2Dots, @track_only, @none};
     end
     methods
         function namelist = names(obj)

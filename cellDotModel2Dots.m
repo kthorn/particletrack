@@ -21,12 +21,12 @@ classdef cellDotModel2Dots < cellDotModel
             %autothresholding
             thresh = max(testimfilt(:))/2;
             %find peaks
-            s=regionprops(testimfilt > thresh, im, 'weightedcentroid','maxintensity');
+            s=regionprops(testimfilt > thresh, im, 'WeightedCentroid','MaxIntensity');
             peak = 1;
             %if multiple peaks, take one with brightest single pixel
             if size(s,1) > 1
                 for n=1:size(s,1)
-                    if s(n).maxintensity > s(peak).maxintensity
+                    if s(n).MaxIntensity > s(peak).MaxIntensity
                         peak = n;
                     end
                 end
@@ -34,8 +34,8 @@ classdef cellDotModel2Dots < cellDotModel
             %now fit a single gaussian to this peak
             initparams = double([]);
             initparams(1) = median(im(:));
-            initparams(5) = s(peak).maxintensity;
-            initparams(2:4) = s(peak).weightedcentroid;
+            initparams(5) = s(peak).MaxIntensity;
+            initparams(2:4) = s(peak).WeightedCentroid;
             
             result1=lsqcurvefit(@dotmodel_3d_dotonly,initparams,coords,double(im(:)),[],[],fit_options);
             fitim=dotmodel_3d_dotonly(result1,coords);
@@ -50,12 +50,12 @@ classdef cellDotModel2Dots < cellDotModel
             %autothresholding
             thresh = max(testimfilt(:))/2;
             %find peaks
-            s=regionprops(testimfilt>thresh,diffim,'weightedcentroid','maxintensity');
+            s=regionprops(testimfilt>thresh,diffim,'WeightedCentroid','MaxIntensity');
             peak = 1;
             %if multiple peaks, take one with brightest single pixel
             if size(s,1) > 1
                 for n=1:size(s,1)
-                    if s(n).maxintensity > s(peak).maxintensity
+                    if s(n).MaxIntensity > s(peak).MaxIntensity
                         peak = n;
                     end
                 end
@@ -63,8 +63,8 @@ classdef cellDotModel2Dots < cellDotModel
             
             %fit the 2 gaussian model to this
             initparams = result1;
-            initparams(6:8) = s(peak).weightedcentroid;
-            initparams(9) = s(peak).maxintensity;
+            initparams(6:8) = s(peak).WeightedCentroid;
+            initparams(9) = s(peak).MaxIntensity;
             result2=lsqcurvefit(@dotmodel_3d_2dotonly,initparams,coords,double(im(:)),[],[],fit_options);
             fitim=dotmodel_3d_2dotonly(result2,coords);
             fitim=uint16(reshape(fitim,size(im)));
@@ -72,13 +72,13 @@ classdef cellDotModel2Dots < cellDotModel
             diffim = im - fitim;
             %estimate nuclear background location
             %find peaks (no sharpening)
-            s=regionprops(diffim > max(diffim(:))/2, diffim, 'weightedcentroid','meanintensity','area');
+            s=regionprops(diffim > max(diffim(:))/2, diffim, 'WeightedCentroid','MaxIntensity','Area');
             peak = 1;
             
             %if multiple peaks, take one with largest area
             if size(s,1) > 1
                 for n=1:size(s,1)
-                    if (s(n).area) > (s(peak).area)
+                    if (s(n).Area) > (s(peak).Area)
                         peak = n;
                     end
                 end
@@ -88,11 +88,11 @@ classdef cellDotModel2Dots < cellDotModel
             %now fit the full model
             initparams(1) = result2(1);
             initparams(10:17) = result2(2:9);
-            initparams(2:4) = s(peak).weightedcentroid;
+            initparams(2:4) = s(peak).WeightedCentroid;
             initparams(5:6) = 5; %cell sigmaxy
             initparams(7) = 3; %cell sigmaz
             initparams(8) = 0; %cell covariance
-            initparams(9) = s(peak).meanintensity * 2; %cell intensity
+            initparams(9) = s(peak).MaxIntensity * 2; %cell intensity
             [result, sse] = lsqcurvefit(@dotmodel2_3d_nosigma,initparams,coords,double(im(:)),[],[],fit_options);
             
             obj.model_params = result;
@@ -100,7 +100,7 @@ classdef cellDotModel2Dots < cellDotModel
         end
         
         function i = getIntensity(obj, ~)
-            params = obj.censoredparams();
+            params = obj.censoredParams();
             i = params(13) + params(17);
             
             if isnan(i)
@@ -109,12 +109,12 @@ classdef cellDotModel2Dots < cellDotModel
         end
         %return fitted dot intensity
         
-        function fitim = showmodel(obj)
+        function fitim = showModel(obj, ~)
             fitim=dotmodel2_3d_nosigma(obj.model_params,obj.generategrid());
             fitim=uint16(reshape(fitim,obj.imsize));
         end
         
-        function censored = censoredparams(obj)
+        function censored = censoredParams(obj)
             %this function should largely be for internal use
             %returns a copy of the model parameters where values for dots
             %that have intensities < 0 or that have drifted outside the
@@ -144,8 +144,8 @@ classdef cellDotModel2Dots < cellDotModel
             end
         end
         
-        function coords = finalcoords(obj, frame)
-            censored = obj.censoredparams;
+        function coords = finalCoords(obj, frame)
+            censored = obj.censoredParams;
             %average coords of all 3 objects to determine center of next image
             coords(2) = nanmean([censored(2), censored(10), censored(14)]);
             coords(1) = nanmean([censored(3), censored(11), censored(15)]);
@@ -159,15 +159,15 @@ classdef cellDotModel2Dots < cellDotModel
             end
         end
         
-        function grid = generategrid(obj)
-            [x,y,z]=meshgrid(1:obj.imsize(1),1:obj.imsize(2),1:obj.imsize(3));
-            grid=[x(:),y(:),z(:)];
-        end
-        
         function coords = getCoords(obj)
-            censored = obj.censoredparams;
+            censored = obj.censoredParams;
             coords(1,:) = censored(10:11) + obj.initcoords(1:2) - (obj.boxsize+1);
             coords(2,:) = censored(15:16) + obj.initcoords(1:2) - (obj.boxsize+1);
+        end
+        
+        function dist = getDistance(obj)
+            coords = obj.censoredParams;
+            dist = sqrt(sum((coords(10:12)-coords(14:16)).^2));
         end
         
     end

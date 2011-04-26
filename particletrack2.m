@@ -185,8 +185,11 @@ startcoords(c,:)=[]; %remove paired dots
 
 boxsize = str2double(get(handles.boxsize,'String'));
 XYbound = boxsize*2;
+Zbound = 2;
+imsize = size(master_image);
 handles.data.inputdata.boxsize = boxsize;
-badcoords = any(startcoords(:,1:2)' < XYbound) | startcoords(:,1)' > 512-XYbound | startcoords(:,2)' > 512-XYbound;
+badcoords = any(startcoords(:,1:2)' < XYbound) | startcoords(:,1)' > imsize(:,1)-XYbound | startcoords(:,2)' > imsize(:,2)-XYbound | ...
+            startcoords(:,3)' < Zbound | startcoords(:,3)' > imsize(:,3)-Zbound;
 startcoords(badcoords',:)=[];
 
 %save coordinates
