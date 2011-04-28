@@ -29,7 +29,7 @@ disp('starting fitting')
 
 for cell = 1:size(inputdata.coordinates,1)
     coords = squeeze(inputdata.coordinates(cell, :));
-    
+    tic
     for time = 1:ntime
         %cut out subimage for fitting
         if any(isnan(coords(1:2)))
@@ -58,6 +58,8 @@ for cell = 1:size(inputdata.coordinates,1)
         %get updated coordinates for next time point from master channel
         coords = round(outputmodel.channel(master_channel).models(cell, time).finalCoords('full'));
     end
+    disp(['Cell ', sprintf('%d', cell), ' done'])
+    toc
 end
 
 

@@ -112,16 +112,17 @@ if handles.data.selected > 0
     I = handles.data.outputModel.data(cell, MI).intensity;
     timepts = 1:numel(I);
     modelI = model_results_lin(handles.data.outputModel.data(cell,MI).modelI, timepts);
+    parentcell = handles.data.outputModel.data(cell,MI).sourceCell;
     figure(1)
     clf
     
-    if handles.data.model.channel(MI).models(cell, 1).n_submodels > 1
+    if handles.data.model.channel(MI).models(parentcell, 1).n_submodels > 1
         %get individual submodel intensities
         subplot(3,1,1)
-        plot(handles.data.model.intensity(MI, cell, 1));
+        plot(handles.data.model.intensity(MI, parentcell, 1));
         title('1 dot intensity')
         subplot(3,1,2)
-        plot(handles.data.model.intensity(MI, cell, 2));
+        plot(handles.data.model.intensity(MI, parentcell, 2));
         title('2 dot intensity')
         subplot(3,1,3)
     end
@@ -169,8 +170,11 @@ for cidx=1:handles.data.outputModel.nchannels
             modelI(2) = modelI(2) + (0.5/modelI(3));
             modelI(3) = -1/modelI(3);
             modelI(1) = modelI(1) + modelI(4);
-            Imall(clidx,:) = modelI;            
-            flags(clidx) = (strcat(handles.data.outputModel.cells(clidx).flags));
+            Imall(clidx,:) = modelI;                        
+            flaglist = handles.data.outputModel.cells(clidx).flags;
+            if ~isempty(flaglist)
+                flags{clidx} = strcat(flaglist{:});
+            end
         end
         sheetname =[cname,' intensities'];
         xlswrite(outputfile, Iall, sheetname);
@@ -197,9 +201,10 @@ function selectcell_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 [x,y]=ginput(1);
-dist=zeros([1 size(handles.data.model,2)]);
+nCells = handles.data.outputModel.ncells;
+dist=zeros([1 nCells]);
 MI = handles.data.outputModel.masterIndex;
-for n=1:handles.data.model.ncells
+for n=1:handles.data.outputModel.ncells
     coords = handles.data.outputModel.data(n, MI).coords{handles.data.time};
     coords = coords(1,:);
     dist(n) = sum((coords-[x, y]).^2);
@@ -250,21 +255,23 @@ function showmodel_Callback(hObject, eventdata, handles)
 
 if handles.data.selected > 0
     cell = handles.data.selected;
+    MI = handles.data.outputModel.masterIndex;
+    parentcell = handles.data.outputModel.data(cell, MI).sourceCell;
     cname_list = get(handles.channel_menu, 'String');
     cname = cname_list{get(handles.channel_menu, 'Value')};
     chan = handles.data.model.getChannelIndex(cname);
     
-    if handles.data.model.channel(chan).models(cell, 1).n_submodels > 1
+    if handles.data.model.channel(chan).models(parentcell, 1).n_submodels > 1
         %show one and two dot fits and relative performance
         figure(1)
         clf
         fitratio = [];
         ndots =[];
         for t = 1:handles.data.model.ntime
-            if handles.data.model.channel(chan).models(cell, t).isFit
-                sse = handles.data.model.channel(chan).models(cell, t).sse;
+            if handles.data.model.channel(chan).models(parentcell, t).isFit
+                sse = handles.data.model.channel(chan).models(parentcell, t).sse;
                 fitratio(t) = sse(2)/sse(1);
-                ndots(t) = handles.data.model.channel(chan).models(cell, t).preferred_submodel;
+                ndots(t) = handles.data.model.channel(chan).models(parentcell, t).preferred_submodel;
             else
                 break
             end
@@ -275,16 +282,16 @@ if handles.data.selected > 0
         title('1 dot error / 2 dot error (in blue); Ndots (in red)');
     end
     figure(2)
-    boxsize = handles.data.model.channel(chan).models(cell, 1).boxsize;
+    boxsize = handles.data.model.channel(chan).models(parentcell, 1).boxsize;
     for t=1:60
         subplot(4,15,t)
         %cutout original image
-        coords = handles.data.model.channel(chan).models(cell, t).initcoords;
+        coords = handles.data.model.channel(chan).models(parentcell, t).initcoords;
         subimage = squeeze(handles.data.ims(coords(2)-boxsize:coords(2)+boxsize,coords(1)-boxsize:coords(1)+boxsize,:,t,chan));
         dispim=max(subimage,[],3);
         dispim=dispim-min(dispim(:));
         dispim=[dispim;zeros([1 size(dispim,1)])];
-        modelim = handles.data.model.channel(chan).models(cell, t).showModel(1);
+        modelim = handles.data.model.channel(chan).models(parentcell, t).showModel(1);
         fitim=max(modelim,[],3);
         fitim=fitim-min(fitim(:));
         dispim=[dispim; fitim];
@@ -296,12 +303,12 @@ if handles.data.selected > 0
         for t=1:60
             subplot(4,15,t)
             %cutout original image
-            coords = handles.data.model.channel(chan).models(cell, t).initcoords;
+            coords = handles.data.model.channel(chan).models(parentcell, t).initcoords;
             subimage = squeeze(handles.data.ims(coords(2)-boxsize:coords(2)+boxsize,coords(1)-boxsize:coords(1)+boxsize,:,t,chan));
             dispim=max(subimage,[],3);
             dispim=dispim-min(dispim(:));
             dispim=[dispim;zeros([1 size(dispim,1)])];
-            modelim = handles.data.model.channel(chan).models(cell, t).showModel(2);
+            modelim = handles.data.model.channel(chan).models(parentcell, t).showModel(2);
             fitim=max(modelim,[],3);
             fitim=fitim-min(fitim(:));
             dispim=[dispim; fitim];
@@ -567,11 +574,13 @@ handles.data.outputModel.modelIntensity(handles.data.outputModel.masterIndex);
 
 MI = handles.data.outputModel.masterIndex;
 
-for n = 1:handles.data.outputModel.ncells    
-    %find potential disappearing dots
-    modelI = handles.data.outputModel.data(n,MI).modelI;
-    if (modelI(4) / (modelI(1) + modelI(4)) < 0.3)
-        handles.data.outputModel.addFlag(n, 'curious');
+for clidx = 1:handles.data.outputModel.ncells
+    %find potential disappearing dots    
+    I = handles.data.outputModel.data(clidx, MI).intensity;
+    timepts = 1:numel(I);
+    modelI = model_results_lin(handles.data.outputModel.data(clidx,MI).modelI, timepts);
+    if (modelI(end) / (modelI(end) + modelI(1)) < 0.3)
+        handles.data.outputModel.addFlag(clidx, 'curious');
     end
 end
 

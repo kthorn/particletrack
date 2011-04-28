@@ -18,5 +18,3 @@ line = min(line,1);
 F = F.*line;
 %plus baseline
 F = F + x0(4);
-%calculate error
-

@@ -66,15 +66,17 @@ classdef reducedModel < handle
             %retrieve intensities from channel chan of a fitmodel object
             %for all cells and store them here
             for cell = 1:obj.ncells
-                obj.data(cell, chan).intensity = obj.parentmodel.intensity(chan,cell);
+                parentcell = obj.data(cell, chan).sourceCell;
+                obj.data(cell, chan).intensity = obj.parentmodel.intensity(chan,parentcell);
             end
         end
         
         function setDistance (obj, chan)
             %retrieve distances from channel chan of a fitmodel object
             %for all cells and store them here
-            for cell = 1:obj.ncells
-                obj.data(cell, chan).distance = obj.parentmodel.distance(chan,cell);
+            for cell = 1:obj.ncells                
+                parentcell = obj.data(cell, chan).sourceCell;
+                obj.data(cell, chan).distance = obj.parentmodel.distance(chan,parentcell);
             end
         end
         
