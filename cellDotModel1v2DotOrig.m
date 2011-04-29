@@ -123,7 +123,7 @@ classdef cellDotModel1v2DotOrig < cellDotModel
             censored = obj.censoredParams(obj.preferred_submodel);
             coords(1,:) = censored(10:11) + obj.initcoords(1:2) - (obj.boxsize+1);
             if obj.preferred_submodel == 2
-                coords(2,:) = censored(15:16) + obj.initcoords(1:2) - (obj.boxsize+1);
+                coords(2,:) = censored(14:15) + obj.initcoords(1:2) - (obj.boxsize+1);
             end
         end
         

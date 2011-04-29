@@ -283,7 +283,7 @@ if handles.data.selected > 0
     end
     figure(2)
     boxsize = handles.data.model.channel(chan).models(parentcell, 1).boxsize;
-    for t=1:60
+    for t=1:handles.data.model.ntime
         subplot(4,15,t)
         %cutout original image
         coords = handles.data.model.channel(chan).models(parentcell, t).initcoords;
@@ -300,7 +300,7 @@ if handles.data.selected > 0
     end
     if handles.data.model.channel(chan).models(cell, 1).n_submodels > 1
         figure(3)
-        for t=1:60
+        for t=1:handles.data.model.ntime
             subplot(4,15,t)
             %cutout original image
             coords = handles.data.model.channel(chan).models(parentcell, t).initcoords;
