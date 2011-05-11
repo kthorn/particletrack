@@ -160,6 +160,7 @@ for cidx=1:handles.data.outputModel.nchannels
     report = handles.data.outputModel.channels(cidx).report;
     if strcmp(report, 'Intensities') || strcmp(report, 'Both')
         %loop over cells
+        subidx = 1;
         for clidx = 1:handles.data.outputModel.ncells
             Iall(clidx,:) = handles.data.outputModel.data(clidx, cidx).intensity;
             modelI = handles.data.outputModel.data(clidx,cidx).modelI;
@@ -174,13 +175,22 @@ for cidx=1:handles.data.outputModel.nchannels
             flaglist = handles.data.outputModel.cells(clidx).flags;
             if ~isempty(flaglist)
                 flags{clidx} = strcat(flaglist{:});
+                if any(strcmp('disapearing', flaglist))
+                    Imdiss(subidx,:) = modelI;
+                    fldiss{subidx} = strcat(flaglist{:});
+                    subidx = subidx + 1;
+                end
             end
         end
         sheetname =[cname,' intensities'];
         xlswrite(outputfile, Iall, sheetname);
         sheetname =[cname,' model'];
         xlswrite(outputfile, flags', sheetname, 'A1');        
-        xlswrite(outputfile, Imall, sheetname, 'B1');        
+        xlswrite(outputfile, Imall, sheetname, 'B1');     
+        
+        sheetname =[cname,' model flagged'];
+        xlswrite(outputfile, fldiss', sheetname, 'A1');        
+        xlswrite(outputfile, Imdiss, sheetname, 'B1'); 
     end
         if strcmp(report, 'Distances') || strcmp(report, 'Both')
         %loop over cells
@@ -206,7 +216,7 @@ dist=zeros([1 nCells]);
 MI = handles.data.outputModel.masterIndex;
 for n=1:handles.data.outputModel.ncells
     coords = handles.data.outputModel.data(n, MI).coords{handles.data.time};
-    coords = coords(1,:);
+    coords = nanmean(coords,1);
     dist(n) = sum((coords-[x, y]).^2);
 end
 [junk, selected_point]=min(dist);

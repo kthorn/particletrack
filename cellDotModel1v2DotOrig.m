@@ -24,11 +24,11 @@ classdef cellDotModel1v2DotOrig < cellDotModel
             
             %bounds on coordinates
             %parameters     bkgd  nuc x        y   z  sx  sy  sz cov int      dot x        y   z  int
-            lb =          [0,        -1,      -1,   -1,  3,  3, 2, -1,   0,      -1,      -1,   -1,   0];
-            ub =          [Inf, len*2+3, len*2+3, nz+2, 10, 10, 8,  1, Inf, len*2+3, len*2+3, nz+2, Inf];
+            lb =          [0,         0,       0,    0,  3,  3, 2, -1,   0,       0,       0,    0,   0];
+            ub =          [Inf, len*2+2, len*2+2, nz+2, 10, 10, 8,  1, Inf, len*2+2, len*2+2, nz+2, Inf];
             
-            lb2 =         [0,        -1,      -1,   -1,  3,  3,  2, -1,   0,      -1,      -1,   -1,   0,      -1,      -1,   -1];
-            ub2 =         [Inf, len*2+3, len*2+3, nz+2, 10, 10,  8,  1, Inf, len*2+3, len*2+3, nz+2, Inf, len*2+3, len*2+3, nz+2];
+            lb2 =         [0,         0,       0,    0,  3,  3,  2, -1,   0,       0,       0,    0,   0,      -1,      -1,   -1];
+            ub2 =         [Inf, len*2+2, len*2+2, nz+2, 10, 10,  8,  1, Inf, len*2+2, len*2+2, nz+2, Inf, len*2+3, len*2+3, nz+2];
             initparams = double([min(im(:)), len+1, len+1, 5, 4, 4, 3, 0, Imax/5, len+1, len+1, 5, Imax]);
             
             fit_options = optimset('Display','off');
@@ -76,31 +76,8 @@ classdef cellDotModel1v2DotOrig < cellDotModel
             %returns a copy of the model parameters where values for dots
             %that have intensities < 0 or that have drifted outside the
             %image are set to nan.
-            %generate censored parameters
+            %don't censor, since we enforce bounds on the fit.
             censored = obj.model_params{submodel};
-            max_coords = obj.imsize + 1;
-            min_coords = [0 0 0];
-            
-            %test dot 1
-            if any(censored(1,10:12) > max_coords) || any(censored(1,10:12) < min_coords) || ...
-                    censored(13) < 0
-                censored(1,10:13) = nan;
-            end
-            
-            %do 2nd dot, if it exists
-            if (submodel == 2)
-                %test dot 2
-                if any(censored(1,14:16) > max_coords) || any(censored(1,14:16) < min_coords)
-                    censored(1,14:16) = nan;
-                end
-            end
-            %test cell - let it drift further
-            max_coords = obj.imsize .*1.5;
-            min_coords = obj.imsize .*-0.5;
-            if any(censored(1,2:4) > max_coords) || any(censored(1,2:4) < min_coords) || ...
-                    censored(9) < 0
-                censored(1,2:9) = nan;
-            end
         end
         
         function coords = finalCoords(obj, frame)

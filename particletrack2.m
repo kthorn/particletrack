@@ -254,6 +254,8 @@ wavelengthlist = get(handles.wavelength_list,'String');
 %wavelength = wavelengthlist{get(handles.wavelength_list,'Value')};
 
 %load stack
+%clear old images
+handles.data.images=[];
 images = MMparse(get(handles.dir_to_read,'String'),1,wavelengthlist); %load first time point, all wavelengths
 %currently we only handle two channels properly
 
