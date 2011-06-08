@@ -19,9 +19,10 @@ classdef cellDotModelTrack2Dots < cellDotModel
             
             hi_thresh = max(testimfilt(:));
             lo_thresh = min(testimfilt(:)) + hi_thresh/10;
-            curr_thresh = max(testimfilt(:));
+            %curr_thresh = max(testimfilt(:));
+            curr_thresh = lo_thresh;
             prev_thresh = -1;
-            s=regionprops(testimfilt > curr_thresh, im, 'WeightedCentroid','MaxIntensity');
+            s=regionprops(testimfilt > curr_thresh, im, 'WeightedCentroid','MaxIntensity','Area');
             while numel(s) ~= 2
                 if numel(s) > 2
                     %threshold too low
@@ -29,17 +30,31 @@ classdef cellDotModelTrack2Dots < cellDotModel
                     prev_thresh = curr_thresh;
                     curr_thresh = curr_thresh + (hi_thresh - curr_thresh)/10;
                 elseif numel(s) < 2
+                    if abs(curr_thresh - lo_thresh) < 1
+                        %already at minimum
+                        break;
+                    end
                     %threshold too high
                     hi_thresh = curr_thresh;
                     prev_thresh = curr_thresh;
                     curr_thresh = curr_thresh + (lo_thresh - curr_thresh)/10;
                 end
                 %find peaks
-                s=regionprops(testimfilt > curr_thresh, im, 'WeightedCentroid','MaxIntensity');
+                s=regionprops(testimfilt > curr_thresh, im, 'WeightedCentroid', 'MaxIntensity', 'Area');
                 if abs(hi_thresh - lo_thresh) < 1
                     %two peaks of equal intensity
                     break;
                 end
+            end
+            %delete single pixel events
+            bad=[];
+            for n=1:numel(s)
+                if s(n).Area == 1;
+                    bad = n;
+                end
+            end
+            if ~isempty(bad)
+                s(bad)=[];
             end
             if numel(s) < 2
                 obj.model_params = [s(1).WeightedCentroid, s(1).WeightedCentroid, s(1).MaxIntensity, s(1).MaxIntensity];
