@@ -154,6 +154,8 @@ function export_Callback(hObject, eventdata, handles)
 outputfile = fullfile(handles.data.model.directory, 'analysis.xls');
 %remove old version, if present
 delete(outputfile);
+warning('off', 'MATLAB:xlswrite:AddSheet');
+
 
 for cidx=1:handles.data.outputModel.nchannels
     cname = handles.data.outputModel.channels(cidx).name;
@@ -161,6 +163,7 @@ for cidx=1:handles.data.outputModel.nchannels
     if strcmp(report, 'Intensities') || strcmp(report, 'Both')
         %loop over cells
         subidx = 1;
+        clear Iall Idiss Imdiss fldiss Ddiss Imall
         for clidx = 1:handles.data.outputModel.ncells
             Iall(clidx,:) = handles.data.outputModel.data(clidx, cidx).intensity;
             modelI = handles.data.outputModel.data(clidx,cidx).modelI;
@@ -168,15 +171,20 @@ for cidx=1:handles.data.outputModel.nchannels
             %reformat from midpoint, slope to startpoint, duration
             %and from start intensity + baseline intensity to start intensity, end
             %intensity
-            modelI(2) = modelI(2) + (0.5/modelI(3));
-            modelI(3) = -1/modelI(3);
-            modelI(1) = modelI(1) + modelI(4);
-            Imall(clidx,:) = modelI;                        
+            if numel(modelI)>0
+                modelI(2) = modelI(2) + (0.5/modelI(3));
+                modelI(3) = -1/modelI(3);
+                modelI(1) = modelI(1) + modelI(4);
+                Imall(clidx,:) = modelI;
+            end
             flaglist = handles.data.outputModel.cells(clidx).flags;
             if ~isempty(flaglist)
                 flags{clidx} = strcat(flaglist{:});
-                if any(strcmp('disapearing', flaglist))
-                    Imdiss(subidx,:) = modelI;
+                if any(strcmp('disappearing', flaglist))
+                    Idiss(subidx,:) = handles.data.outputModel.data(clidx, cidx).intensity;
+                    if numel(modelI)>0
+                        Imdiss(subidx,:) = modelI;
+                    end
                     fldiss{subidx} = strcat(flaglist{:});
                     subidx = subidx + 1;
                 end
@@ -184,24 +192,52 @@ for cidx=1:handles.data.outputModel.nchannels
         end
         sheetname =[cname,' intensities'];
         xlswrite(outputfile, Iall, sheetname);
-        sheetname =[cname,' model'];
-        xlswrite(outputfile, flags', sheetname, 'A1');        
-        xlswrite(outputfile, Imall, sheetname, 'B1');     
         
-        sheetname =[cname,' model flagged'];
-        xlswrite(outputfile, fldiss', sheetname, 'A1');        
-        xlswrite(outputfile, Imdiss, sheetname, 'B1'); 
+        if exist('Imall','var')
+            sheetname =[cname,' model'];
+            xlswrite(outputfile, flags', sheetname, 'A1');
+            xlswrite(outputfile, Imall, sheetname, 'B1');
+        end
+        
+        if exist('fldiss','var')
+            sheetname =[cname,' intensities flagged'];
+            xlswrite(outputfile, fldiss', sheetname, 'A1');
+            xlswrite(outputfile, Idiss, sheetname, 'B1');
+            if exist('Imdiss','var')
+                sheetname =[cname,' model flagged'];
+                xlswrite(outputfile, fldiss', sheetname, 'A1');
+                xlswrite(outputfile, Imdiss, sheetname, 'B1');
+            end
+        end
     end
-        if strcmp(report, 'Distances') || strcmp(report, 'Both')
+    clear fldiss
+    if strcmp(report, 'Distances') || strcmp(report, 'Both')
         %loop over cells
+        subidx = 1;
         for clidx = 1:handles.data.outputModel.ncells
             Dall(clidx,:) = handles.data.outputModel.data(clidx, cidx).distance;
+            flaglist = handles.data.outputModel.cells(clidx).flags;
+            if ~isempty(flaglist)
+                flags{clidx} = strcat(flaglist{:});
+                if any(strcmp('disappearing', flaglist))
+                    Ddiss(subidx,:) = handles.data.outputModel.data(clidx, cidx).distance;
+                    fldiss{subidx} = strcat(flaglist{:});
+                    subidx = subidx + 1;
+                end
+            end
         end
         sheetname =[cname,' distances'];
-        xlswrite(outputfile, Dall, sheetname);   
+        xlswrite(outputfile, Dall, sheetname);
+        
+        if exist('fldiss', 'var')
+            sheetname =[cname,' distances flagged'];
+            xlswrite(outputfile, fldiss', sheetname, 'A1');
+            xlswrite(outputfile, Ddiss, sheetname, 'B1');
+        end
     end
     
 end
+warning('on', 'MATLAB:xlswrite:AddSheet');
 
 
 % --- Executes on button press in selectcell.
@@ -340,6 +376,8 @@ for t=1:size(handles.data.ims,4)
     update_image(handles);    
     drawnow expose update
 end
+handles.data.time = 1;
+update_image(handles);
 guidata(hObject, handles);
 
 

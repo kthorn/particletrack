@@ -82,7 +82,7 @@ classdef fitModel < handle
                     if obj.channel(chan).models(cell,t).isFit
                         I(t) = obj.channel(chan).models(cell,t).getIntensity(submodel);
                     else
-                        break
+                        I(t) = NaN;
                     end
                 end
             else
@@ -91,7 +91,7 @@ classdef fitModel < handle
                     if obj.channel(chan).models(cell,t).isFit
                         I(t) = obj.channel(chan).models(cell,t).getIntensity(submodel);
                     else
-                        break
+                        I(t) = NaN;
                     end
                 end
             end
@@ -109,7 +109,7 @@ classdef fitModel < handle
                     if obj.channel(chan).models(cell,t).isFit
                         dist(t) = obj.channel(chan).models(cell,t).getDistance(submodel);
                     else
-                        break
+                        dist(t) = NaN;
                     end
                 end
             else
@@ -118,7 +118,7 @@ classdef fitModel < handle
                     if obj.channel(chan).models(cell,t).isFit
                         dist(t) = obj.channel(chan).models(cell,t).getDistance(submodel);
                     else
-                        break
+                        dist(t) = NaN;
                     end
                 end
             end
