@@ -23,6 +23,11 @@ classdef cellDotModelTrack2Dots < cellDotModel
             curr_thresh = lo_thresh;
             prev_thresh = -1;
             s=regionprops(testimfilt > curr_thresh, im, 'WeightedCentroid','MaxIntensity','Area');
+            if numel(s) < 2
+                %if we can't find two peaks at low threshold, they are
+                %likely close together, so start high and work down.
+                curr_thresh = hi_thresh;
+            end
             while numel(s) ~= 2
                 if numel(s) > 2
                     %threshold too low
