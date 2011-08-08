@@ -4,7 +4,7 @@ function imstack = MMparse(directory, varargin)
 %varargin{2} = wavelength(s) to read - string array of valid wavelength names
 
 %regular expression for parsing filenames
-RE = 'img_(\d+)_(.+)_(\d+).tif';
+RE = 'img_(\d+)_(.*)_(\d+).tif';
 prefix = 'img';
 
 files=dir(fullfile(directory,'*.tif'));
