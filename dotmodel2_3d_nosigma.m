@@ -18,6 +18,10 @@ function F = dotmodel2_3d_nosigma(x,xdata)
 
 sigmaxy = 3.125; % 2*(1.25^2)
 sigmaz = 5.78; %2*(1.7^2)
+%for 60x oil:
+%sigmaxy = 2.24;
+%sigmaz = 1.20;
+
 
 X=xdata(:,1);
 Y=xdata(:,2);

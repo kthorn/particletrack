@@ -165,7 +165,7 @@ classdef cellDotModel2Dots < cellDotModel
             coords(2,:) = censored(15:16) + obj.initcoords(1:2) - (obj.boxsize+1);
         end
         
-        function dist = getDistance(obj)
+        function dist = getDistance(obj, submodel)
             coords = obj.censoredParams;
             dist = sqrt(sum((coords(10:12)-coords(14:16)).^2));
         end
