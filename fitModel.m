@@ -10,10 +10,10 @@ classdef fitModel < handle
         ntime;
         nchannels;
         sigmas; %[sigmaxy, sigmaz] for dots
-        scale; %[XY Z] scale factors e.g. nm/pixel in XY and Z dimensions
     end
     properties
         channel;
+        scale; %[XY Z] scale factors e.g. nm/pixel in XY and Z dimensions
         
         % channel is an array with subproperties
         % name
