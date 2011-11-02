@@ -122,13 +122,14 @@ classdef cellDotModel1v2DotOrig < cellDotModel
             end
         end
         
-        function dist = getDistance(obj, submodel)
+        function dist = getDistance(obj, submodel, scale)
             switch submodel
                 case 1
                     dist = 0;
                 case 2
                     coords = obj.censoredParams(submodel);
-                    dist = sqrt(sum((coords(10:12)-coords(14:16)).^2));
+                    delta = (coords(10:12)-coords(14:16)).*[scale(1) scale(1) scale(2)];
+                    dist = sqrt(sum(delta.^2));
             end            
         end
         

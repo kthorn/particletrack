@@ -22,7 +22,7 @@ function varargout = particletrack2(varargin)
 
 % Edit the above text to modify the response to help particletrack2
 
-% Last Modified by GUIDE v2.5 01-Nov-2011 11:58:05
+% Last Modified by GUIDE v2.5 02-Nov-2011 11:22:31
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -146,8 +146,13 @@ if isfield(handles.data, 'queued')
 else
     nqueued = 0;
 end
-
+%get sigmas
 handles.data.inputdata.sigmas = dot_sigmas(get(handles.sigmas,'Value'));
+%get XYZ scale factors
+scale(1) = str2double(get(handles.XYsize,'String'));
+scale(2) = str2double(get(handles.Zsize,'String'));
+handles.data.inputdata.scale = scale;
+
 handles.data.queued(nqueued+1).input = handles.data.inputdata;
 
 set(handles.status,'String','Dataset queued');
@@ -513,6 +518,52 @@ function sigmas_CreateFcn(hObject, eventdata, handles)
 % handles    empty - handles not created until after all CreateFcns called
 
 % Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function XYsize_Callback(hObject, eventdata, handles)
+% hObject    handle to XYsize (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of XYsize as text
+%        str2double(get(hObject,'String')) returns contents of XYsize as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function XYsize_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to XYsize (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Zsize_Callback(hObject, eventdata, handles)
+% hObject    handle to Zsize (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Zsize as text
+%        str2double(get(hObject,'String')) returns contents of Zsize as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Zsize_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Zsize (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');

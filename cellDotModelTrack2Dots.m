@@ -112,9 +112,10 @@ classdef cellDotModelTrack2Dots < cellDotModel
             i = 0;
         end
         
-        function dist = getDistance(obj, submodel)
+        function dist = getDistance(obj, submodel, scale)
             coords = obj.censoredParams(submodel);
-            dist = sqrt(sum((coords(1:3)-coords(4:6)).^2));
+            delta = (coords(1:3)-coords(4:6)).*[scale(1) scale(1) scale(2)];
+            dist = sqrt(sum(delta.^2));
         end
         
         function setPreferredSubmodel(obj, submodel)

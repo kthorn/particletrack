@@ -8,6 +8,7 @@ classdef fitDataDescriptor < handle
         master; %name of master channel
         boxsize; %size of region around each coordinate to cut out for analysis
         sigmas; %dot width in xy, z: sigmas = [sigmaxy, sigmaz]
+        scale; %[XY Z] scale factors e.g. nm/pixel in XY and Z dimensions
     end
     properties (SetAccess = private, GetAccess = private)
         channel;

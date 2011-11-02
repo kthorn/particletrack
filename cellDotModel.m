@@ -34,7 +34,7 @@ classdef cellDotModel < handle
         I = getIntensity(obj, submodel)
         %return fitted dot intensity
         
-        dist = getDistance(obj)
+        dist = getDistance(obj, submodel, scale)
         %return distance between two dots in case of multi-dot model
         
         coords = getCoords(obj, submodel)

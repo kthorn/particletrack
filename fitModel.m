@@ -10,6 +10,7 @@ classdef fitModel < handle
         ntime;
         nchannels;
         sigmas; %[sigmaxy, sigmaz] for dots
+        scale; %[XY Z] scale factors e.g. nm/pixel in XY and Z dimensions
     end
     properties
         channel;
@@ -31,6 +32,7 @@ classdef fitModel < handle
             newobj.master = inputdata.master;
             newobj.boxsize = inputdata.boxsize;
             newobj.sigmas = inputdata.sigmas;
+            newobj.scale = inputdata.scale;
             
             clist = inputdata.getChannelNames();
             nn=1;
@@ -109,7 +111,7 @@ classdef fitModel < handle
                 for t = 1:obj.ntime
                     submodel = obj.channel(chan).models(cell,t).preferred_submodel;
                     if obj.channel(chan).models(cell,t).isFit
-                        dist(t) = obj.channel(chan).models(cell,t).getDistance(submodel);
+                        dist(t) = obj.channel(chan).models(cell,t).getDistance(submodel, obj.scale);
                     else
                         dist(t) = NaN;
                     end
@@ -118,7 +120,7 @@ classdef fitModel < handle
                 submodel = varargin{1};
                 for t = 1:obj.ntime
                     if obj.channel(chan).models(cell,t).isFit
-                        dist(t) = obj.channel(chan).models(cell,t).getDistance(submodel);
+                        dist(t) = obj.channel(chan).models(cell,t).getDistance(submodel, obj.scale);
                     else
                         dist(t) = NaN;
                     end
