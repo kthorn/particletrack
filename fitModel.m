@@ -9,6 +9,7 @@ classdef fitModel < handle
         ncells;
         ntime;
         nchannels;
+        sigmas; %[sigmaxy, sigmaz] for dots
     end
     properties
         channel;
@@ -29,6 +30,7 @@ classdef fitModel < handle
             newobj.directory = inputdata.directory;
             newobj.master = inputdata.master;
             newobj.boxsize = inputdata.boxsize;
+            newobj.sigmas = inputdata.sigmas;
             
             clist = inputdata.getChannelNames();
             nn=1;

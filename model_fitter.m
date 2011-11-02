@@ -46,7 +46,7 @@ for cell = 1:size(inputdata.coordinates,1)
         %         imshow(max(subimage,[],3),[]);
         %fit all channels
         for chan = 1:numel(wavelengthlist)
-            outputmodel.channel(chan).models(cell, time).fit(subimage(:,:,:,chan));
+            outputmodel.channel(chan).models(cell, time).fit(subimage(:,:,:,chan), inputdata.sigmas);
             outputmodel.channel(chan).models(cell, time).initcoords = coords;
             outputmodel.channel(chan).models(cell, time).boxsize = boxsize;
             %             figure(3)

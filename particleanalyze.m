@@ -329,15 +329,19 @@ if handles.data.selected > 0
     end
     figure(2)
     boxsize = handles.data.model.channel(chan).models(parentcell, 1).boxsize;
-    for t=1:handles.data.model.ntime
-        subplot(4,15,t)
+    %generate grid to reassemble images in
+    nbox_x=round(sqrt(handles.data.model.ntime)/2);
+    nbox_y=idivide(uint16(handles.data.model.ntime),nbox_x,'ceil');
+    nbox_y=double(nbox_y);
+    for t=1:handles.data.model.ntime        
+        subplot(nbox_x,nbox_y,t)
         %cutout original image
         coords = handles.data.model.channel(chan).models(parentcell, t).initcoords;
         subimage = squeeze(handles.data.ims(coords(2)-boxsize:coords(2)+boxsize,coords(1)-boxsize:coords(1)+boxsize,:,t,chan));
         dispim=max(subimage,[],3);
         dispim=dispim-min(dispim(:));
         dispim=[dispim;zeros([1 size(dispim,1)])];
-        modelim = handles.data.model.channel(chan).models(parentcell, t).showModel(1);
+        modelim = handles.data.model.channel(chan).models(parentcell, t).showModel(1,handles.data.model.sigmas);
         fitim=max(modelim,[],3);
         fitim=fitim-min(fitim(:));
         dispim=[dispim; fitim];
@@ -347,14 +351,14 @@ if handles.data.selected > 0
     if handles.data.model.channel(chan).models(cell, 1).n_submodels > 1
         figure(3)
         for t=1:handles.data.model.ntime
-            subplot(4,15,t)
+            subplot(nbox_x,nbox_y,t)
             %cutout original image
             coords = handles.data.model.channel(chan).models(parentcell, t).initcoords;
             subimage = squeeze(handles.data.ims(coords(2)-boxsize:coords(2)+boxsize,coords(1)-boxsize:coords(1)+boxsize,:,t,chan));
             dispim=max(subimage,[],3);
             dispim=dispim-min(dispim(:));
             dispim=[dispim;zeros([1 size(dispim,1)])];
-            modelim = handles.data.model.channel(chan).models(parentcell, t).showModel(2);
+            modelim = handles.data.model.channel(chan).models(parentcell, t).showModel(2,handles.data.model.sigmas);
             fitim=max(modelim,[],3);
             fitim=fitim-min(fitim(:));
             dispim=[dispim; fitim];

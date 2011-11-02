@@ -22,7 +22,7 @@ function varargout = particletrack2(varargin)
 
 % Edit the above text to modify the response to help particletrack2
 
-% Last Modified by GUIDE v2.5 29-Mar-2011 14:55:35
+% Last Modified by GUIDE v2.5 01-Nov-2011 11:58:05
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -62,6 +62,7 @@ set(handles.model_list,'Enable','off');
 set(handles.master_button,'Enable','off');
 set(handles.find_dots,'Enable','off');
 set(handles.add_dots,'Enable','off');
+set(handles.sigmas, 'String', dot_sigmas());
 
 %get models
 
@@ -145,6 +146,8 @@ if isfield(handles.data, 'queued')
 else
     nqueued = 0;
 end
+
+handles.data.inputdata.sigmas = dot_sigmas(get(handles.sigmas,'Value'));
 handles.data.queued(nqueued+1).input = handles.data.inputdata;
 
 set(handles.status,'String','Dataset queued');
@@ -487,6 +490,29 @@ function boxsize_CreateFcn(hObject, eventdata, handles)
 % handles    empty - handles not created until after all CreateFcns called
 
 % Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in sigmas.
+function sigmas_Callback(hObject, eventdata, handles)
+% hObject    handle to sigmas (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns sigmas contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from sigmas
+
+
+% --- Executes during object creation, after setting all properties.
+function sigmas_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to sigmas (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');

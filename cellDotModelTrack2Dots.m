@@ -7,7 +7,7 @@ classdef cellDotModelTrack2Dots < cellDotModel
     end
     
     methods
-        function fit(obj, im)
+        function fit(obj, im, ~)
 %             disp('fitting...')
 %             figure(1)
 %             imshow(max(im,[],3),[])

@@ -27,8 +27,9 @@ classdef cellDotModel < handle
     end
     
     methods (Abstract)
-        fit(obj, data)
-        %fit the model to data, updating parameters and fit properties     
+        fit(obj, data, sigmas)
+        %fit the model to data, updating parameters and fit properties.  
+        %Sigmas are widths of diffraction limited gaussians.     
         
         I = getIntensity(obj, submodel)
         %return fitted dot intensity
@@ -39,7 +40,7 @@ classdef cellDotModel < handle
         coords = getCoords(obj, submodel)
         %return x,y coordinates of object(s) for plotting
         
-        modelim = showModel(obj, submodel)
+        modelim = showModel(obj, submodel, sigmas)
         %return the modeled image
         
         coords = finalCoords(obj, frame)

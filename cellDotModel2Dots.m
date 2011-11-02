@@ -7,7 +7,7 @@ classdef cellDotModel2Dots < cellDotModel
     end
     
     methods
-        function fit(obj, im)
+        function fit(obj, im, sigmas)
             imsize = size(im);
             %update object properties
             obj.imsize = imsize;
@@ -37,8 +37,9 @@ classdef cellDotModel2Dots < cellDotModel
             initparams(5) = s(peak).MaxIntensity;
             initparams(2:4) = s(peak).WeightedCentroid;
             
-            result1=lsqcurvefit(@dotmodel_3d_dotonly,initparams,coords,double(im(:)),[],[],fit_options);
-            fitim=dotmodel_3d_dotonly(result1,coords);
+            fitfunc = @(x, xdata)dotmodel_3d_dotonly(x, xdata, sigmas);            
+            result1=lsqcurvefit(fitfunc,initparams,coords,double(im(:)),[],[],fit_options);
+            fitim=dotmodel_3d_dotonly(result1,coords,sigmas);
             fitim=uint16(reshape(fitim,size(im)));
             
             %%%%%%%%%%%%%%%%%%%%%%%
@@ -65,8 +66,10 @@ classdef cellDotModel2Dots < cellDotModel
             initparams = result1;
             initparams(6:8) = s(peak).WeightedCentroid;
             initparams(9) = s(peak).MaxIntensity;
-            result2=lsqcurvefit(@dotmodel_3d_2dotonly,initparams,coords,double(im(:)),[],[],fit_options);
-            fitim=dotmodel_3d_2dotonly(result2,coords);
+            
+            fitfunc = @(x, xdata)dotmodel_3d_2dotonly(x, xdata, sigmas);   
+            result2=lsqcurvefit(fitfunc,initparams,coords,double(im(:)),[],[],fit_options);
+            fitim=dotmodel_3d_2dotonly(result2,coords,sigmas);
             fitim=uint16(reshape(fitim,size(im)));
             
             diffim = im - fitim;
@@ -93,7 +96,9 @@ classdef cellDotModel2Dots < cellDotModel
             initparams(7) = 3; %cell sigmaz
             initparams(8) = 0; %cell covariance
             initparams(9) = s(peak).MaxIntensity * 2; %cell intensity
-            [result, sse] = lsqcurvefit(@dotmodel2_3d_nosigma,initparams,coords,double(im(:)),[],[],fit_options);
+            
+            fitfunc = @(x, xdata)dotmodel2_3d_nosigma(x, xdata, sigmas);   
+            [result, sse] = lsqcurvefit(fitfunc,initparams,coords,double(im(:)),[],[],fit_options);
             
             obj.model_params = result;
             obj.sse = sse;
@@ -109,8 +114,8 @@ classdef cellDotModel2Dots < cellDotModel
         end
         %return fitted dot intensity
         
-        function fitim = showModel(obj, ~)
-            fitim=dotmodel2_3d_nosigma(obj.model_params,obj.generategrid());
+        function fitim = showModel(obj, ~, sigmas)
+            fitim=dotmodel2_3d_nosigma(obj.model_params, obj.generategrid(), sigmas);
             fitim=uint16(reshape(fitim,obj.imsize));
         end
         

@@ -8,7 +8,7 @@ classdef cellDotModel1v2DotOrig < cellDotModel
     end
     
     methods
-        function fit(obj, im)
+        function fit(obj, im, sigmas)
 %             disp('fitting...')
 %             figure(1)
 %             imshow(max(im,[],3),[])
@@ -42,10 +42,12 @@ classdef cellDotModel1v2DotOrig < cellDotModel
             [q,r,s]=ind2sub(size(testimfilt),peak);
             initparams(10:12)=[r,q,s];
             
-            [result, sse] = lsqcurvefit(@dotmodel_3d_nosigma,initparams,coords,im(:),lb,ub,fit_options);
+            
+            fitfunc = @(x, xdata)dotmodel_3d_nosigma(x, xdata, sigmas);   
+            [result, sse] = lsqcurvefit(fitfunc,initparams,coords,im(:),lb,ub,fit_options);
             obj.model_params{1} = result;
             obj.sse(1) = sse;
-            fitim = dotmodel_3d_nosigma(result,coords);
+            fitim = dotmodel_3d_nosigma(result,coords,sigmas);
             fitim = reshape(fitim,size(im));
             
             %best guesses for 2 dots coordinates
@@ -56,17 +58,18 @@ classdef cellDotModel1v2DotOrig < cellDotModel
             [q,r,s] = ind2sub(size(testimfilt),peak);
             initparams(14:16) = [r,q,s];
             
-            [result, sse] = lsqcurvefit(@dotmodel2_3d_nosigma_1i,initparams,coords,im(:),lb2,ub2,fit_options);
+            fitfunc = @(x, xdata)dotmodel2_3d_nosigma_1i(x, xdata, sigmas);
+            [result, sse] = lsqcurvefit(fitfunc,initparams,coords,im(:),lb2,ub2,fit_options);
             obj.model_params{2} = result;
             obj.sse(2) = sse;
         end
                
-        function fitim = showModel(obj, submodel)
+        function fitim = showModel(obj, submodel, sigmas)
             switch submodel
                 case 1
-                    fitim=dotmodel_3d_nosigma(obj.model_params{submodel},obj.generategrid());
+                    fitim=dotmodel_3d_nosigma(obj.model_params{submodel}, obj.generategrid(), sigmas);
                 case 2                    
-                    fitim=dotmodel2_3d_nosigma_1i(obj.model_params{submodel},obj.generategrid());
+                    fitim=dotmodel2_3d_nosigma_1i(obj.model_params{submodel}, obj.generategrid(), sigmas);
             end
             fitim=uint16(reshape(fitim,obj.imsize));
         end

@@ -1,4 +1,4 @@
-function F = dotmodel_3d_2dotonly(x,xdata)
+function F = dotmodel_3d_2dotonly(x, xdata, sigmas)
 %x(1) = constant background
 %nucleus params
 %x(2:4) = dot x, y, z coordinates
@@ -6,8 +6,10 @@ function F = dotmodel_3d_2dotonly(x,xdata)
 %x(6:8) = 2nd dot x, y, z coordinates
 %x(9) = 2nd peak height
 
-sigmaxy = 3.125; %2*(1.25^2)
-sigmaz = 5.78; %2*(1.7^2)
+%sigmaxy = 3.125; %2*(1.25^2)
+%sigmaz = 5.78; %2*(1.7^2)
+sigmaxy = sigmas(1);
+sigmaz = sigmas(2);
 
 X=xdata(:,1);
 Y=xdata(:,2);
