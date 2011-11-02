@@ -328,12 +328,16 @@ if handles.data.selected > 0
         title('1 dot error / 2 dot error (in blue); Ndots (in red)');
     end
     figure(2)
+    clf
     boxsize = handles.data.model.channel(chan).models(parentcell, 1).boxsize;
     %generate grid to reassemble images in
     nbox_x=round(sqrt(handles.data.model.ntime)/2);
     nbox_y=idivide(uint16(handles.data.model.ntime),nbox_x,'ceil');
     nbox_y=double(nbox_y);
-    for t=1:handles.data.model.ntime        
+    for t=1:handles.data.model.ntime
+        if ~handles.data.model.channel(chan).models(parentcell, t).isFit
+            break;
+        end
         subplot(nbox_x,nbox_y,t)
         %cutout original image
         coords = handles.data.model.channel(chan).models(parentcell, t).initcoords;
@@ -350,7 +354,11 @@ if handles.data.selected > 0
     end
     if handles.data.model.channel(chan).models(cell, 1).n_submodels > 1
         figure(3)
+        clf
         for t=1:handles.data.model.ntime
+            if ~handles.data.model.channel(chan).models(parentcell, t).isFit
+                break;
+            end
             subplot(nbox_x,nbox_y,t)
             %cutout original image
             coords = handles.data.model.channel(chan).models(parentcell, t).initcoords;
