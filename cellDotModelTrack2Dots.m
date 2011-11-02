@@ -72,7 +72,7 @@ classdef cellDotModelTrack2Dots < cellDotModel
 
         end
         
-        function fitim = showModel(obj, ~)
+        function fitim = showModel(obj, ~, ~)
             fitim = zeros(obj.imsize);
             coords = round(obj.model_params);
             fitim(coords(2), coords(1), coords(3)) = coords(7);            
