@@ -565,10 +565,13 @@ for cell=1:model.ncells
         for n=1:size(coords,2)
             plot(target_axis,coords(n,1),coords(n,2),[color,'s']);
         end
-     else            
+    else
         plot(target_axis,coords(1),coords(2),[color,'o']);
     end
-
+    %display cell number
+    offsety = -8;
+    offsetx = 6;
+    text(coords(1,1) + offsetx, coords(1,2)+offsety, sprintf('%d',cell),'Color',[1 1 1]);
 end
 
 function handles = update_selection(handles, selected_cell)
